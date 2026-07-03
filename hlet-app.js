@@ -2,6 +2,7 @@ const PASSWORD = "HLET2025";
 const STORAGE_KEY = "hlet-hub-v1";
 const SESSION_KEY = "hlet-session-v1";
 const PAGE_SIZE = 120;
+const WEAPON_CATEGORIES = ["HEAVY", "SMGS", "THROWABLES", "MELEE", "OTHER", "PISTOLS", "SHOTGUNS", "RIFLES"];
 
 const seed = window.HLET_SEED_DATA || { items: [] };
 const state = loadState();
@@ -186,14 +187,16 @@ function isHiddenTag(tag) {
 
 function getWeaponCategory(item) {
   const text = `${item.name} ${item.code} ${(item.tags || []).join(" ")}`.toLowerCase();
-  if (/\b(knife|bat|club|hammer|hatchet|machete|wrench|crowbar|bottle|knuckle|nightstick|battleaxe|pool cue|golf club|dagger|axe|brick|candy cane|sledgehammer|flashlight)\b/.test(text)) return "Melee";
-  if (/\b(grenade|molotov|sticky|pipe bomb|pipebomb|mine|bz gas|tear gas|snowball|ball)\b/.test(text)) return "Throwables";
-  if (/\b(rpg|rocket|launcher|minigun|railgun|widowmaker|cannon|missile|mg|machine gun|combat mg|pkm|rpk)\b/.test(text)) return "Heavy";
-  if (/\b(shotgun|mossberg|remington|sawn|sawed|winchester|bean bag)\b/.test(text)) return "Shotguns";
-  if (/\b(smg|pdw|p90|mp5|mp40|tec-9|tec9|uzi|mac-10|mac-11|skorpion|ump)\b/.test(text)) return "SMGs";
-  if (/\b(pistol|revolver|glock|beretta|deagle|five seven|fn 509|m1911|tokarev|python|colt|p226|p88|m9)\b/.test(text)) return "Pistols";
-  if (/\b(rifle|carbine|ak|m4|m16|mk18|g36|scar|fal|l96|mosin|sniper|marksman|gusenberg|m14)\b/.test(text)) return "Rifles";
-  return "Other";
+  const manualCategory = (item.tags || []).find((tag) => WEAPON_CATEGORIES.includes(String(tag).toUpperCase()));
+  if (manualCategory) return manualCategory.toUpperCase();
+  if (/\b(knife|bat|club|hammer|hatchet|machete|wrench|crowbar|bottle|knuckle|nightstick|battleaxe|pool cue|golf club|dagger|axe|brick|candy cane|sledgehammer|flashlight)\b/.test(text)) return "MELEE";
+  if (/\b(grenade|molotov|sticky|pipe bomb|pipebomb|mine|bz gas|tear gas|snowball|ball)\b/.test(text)) return "THROWABLES";
+  if (/\b(rpg|rocket|launcher|minigun|railgun|widowmaker|cannon|missile|mg|machine gun|combat mg|pkm|rpk)\b/.test(text)) return "HEAVY";
+  if (/\b(shotgun|mossberg|remington|sawn|sawed|winchester|bean bag)\b/.test(text)) return "SHOTGUNS";
+  if (/\b(smg|pdw|p90|mp5|mp40|tec-9|tec9|uzi|mac-10|mac-11|skorpion|ump)\b/.test(text)) return "SMGS";
+  if (/\b(pistol|revolver|glock|beretta|deagle|five seven|fn 509|m1911|tokarev|python|colt|p226|p88|m9)\b/.test(text)) return "PISTOLS";
+  if (/\b(rifle|carbine|ak|m4|m16|mk18|g36|scar|fal|l96|mosin|sniper|marksman|gusenberg|m14)\b/.test(text)) return "RIFLES";
+  return "OTHER";
 }
 
 function categoriesFor(type) {
@@ -206,8 +209,7 @@ function categoriesFor(type) {
   }
 
   if (type === "weapon") {
-    const weaponCategories = ["Pistols", "SMGs", "Rifles", "Shotguns", "Melee", "Heavy", "Throwables", "Other"];
-    return weaponCategories
+    return WEAPON_CATEGORIES
       .map((category) => [category, state.items.filter((item) => item.kind === "weapon" && getWeaponCategory(item) === category).length])
       .filter(([, count]) => count > 0);
   }
@@ -262,7 +264,7 @@ function renderCard(item, options = {}) {
   const listButton = state.lists.length
     ? `<button data-add-to-list="${escapeHtml(item.id)}" type="button">+ List</button>`
     : "";
-  const editTagsButton = item.kind === "object"
+  const editTagsButton = item.kind === "object" || item.kind === "weapon"
     ? `<button data-edit-tags="${escapeHtml(item.id)}" type="button">Edit tags</button>`
     : "";
   const thumb = renderThumb(item);
@@ -274,7 +276,7 @@ function renderCard(item, options = {}) {
       <div class="card-code">${escapeHtml(item.code)}</div>
       <div class="tag-row">
         ${item.blacklisted ? `<span class="blacklist-tag">Blacklisted</span>` : ""}
-        ${(item.tags || []).filter((tag) => !isHiddenTag(tag)).slice(0, 3).map((tag) => `<span class="tag">${escapeHtml(tag)}</span>`).join("")}
+        ${visibleTags(item).map((tag) => `<span class="tag">${escapeHtml(tag)}</span>`).join("")}
       </div>
       <div class="meta">${escapeHtml(item.dlc || "Pleb Masters")}</div>
       <div class="card-actions">
@@ -286,6 +288,14 @@ function renderCard(item, options = {}) {
       </div>
     </article>
   `;
+}
+
+function visibleTags(item) {
+  if (item.kind === "weapon") {
+    return [getWeaponCategory(item)];
+  }
+
+  return (item.tags || []).filter((tag) => !isHiddenTag(tag)).slice(0, 3);
 }
 
 function renderThumb(item) {
@@ -464,6 +474,22 @@ document.addEventListener("click", async (event) => {
   if (editTags) {
     const item = state.items.find((entry) => entry.id === editTags.dataset.editTags);
     if (!item) return;
+    if (item.kind === "weapon") {
+      const current = getWeaponCategory(item);
+      const choice = prompt(`Pick weapon tag:\n${WEAPON_CATEGORIES.map((category, index) => `${index + 1}. ${category}`).join("\n")}`, current);
+      if (choice === null) return;
+      const normalized = String(choice).trim().toUpperCase();
+      const picked = WEAPON_CATEGORIES[Number(normalized) - 1] || WEAPON_CATEGORIES.find((category) => category === normalized);
+      if (!picked) {
+        alert(`Please choose one of: ${WEAPON_CATEGORIES.join(", ")}`);
+        return;
+      }
+      item.tags = [picked];
+      saveItemOverride(item);
+      saveState();
+      renderAll();
+      return;
+    }
     const nextTags = prompt("Edit tags, separated by commas", (item.tags || []).join(", "));
     if (nextTags === null) return;
     item.tags = nextTags.split(",").map((tag) => tag.trim()).filter(Boolean);
