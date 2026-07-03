@@ -257,6 +257,10 @@ nav span {
   align-content: start;
 }
 
+.weapon-card .thumb {
+  display: none !important;
+}
+
 .favorite-button {
   position: absolute;
   top: 10px;
