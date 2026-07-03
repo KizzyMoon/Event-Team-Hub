@@ -109,6 +109,22 @@
       </form>
     </dialog>
 
+    <dialog data-tag-dialog>
+      <form method="dialog" data-tag-form>
+        <h3 data-tag-title>Edit tags</h3>
+        <div class="tag-editor" data-tag-editor></div>
+        <label data-tag-add-row>Add tag<input data-tag-input placeholder="Type a tag and press Add" /></label>
+        <label data-weapon-tag-row>Weapon tag
+          <select data-weapon-tag></select>
+        </label>
+        <div class="dialog-actions">
+          <button data-tag-cancel type="button">Cancel</button>
+          <button data-tag-add type="button">Add</button>
+          <button type="submit">Save</button>
+        </div>
+      </form>
+    </dialog>
+
     <script src="hlet-data.js"></script>
     <script src="hlet-app.js"></script>
   </body>

@@ -10,6 +10,8 @@ let activeTab = "objects";
 let activeCategory = "All";
 let activeListId = state.lists[0]?.id || "";
 let renderLimit = PAGE_SIZE;
+let editingTagItemId = "";
+let editingTags = [];
 
 const els = {
   loginView: document.querySelector("[data-login-view]"),
@@ -31,6 +33,16 @@ const els = {
   grid: document.querySelector("[data-grid]"),
   itemDialog: document.querySelector("[data-item-dialog]"),
   itemForm: document.querySelector("[data-item-form]"),
+  tagDialog: document.querySelector("[data-tag-dialog]"),
+  tagForm: document.querySelector("[data-tag-form]"),
+  tagTitle: document.querySelector("[data-tag-title]"),
+  tagEditor: document.querySelector("[data-tag-editor]"),
+  tagInput: document.querySelector("[data-tag-input]"),
+  tagAddRow: document.querySelector("[data-tag-add-row]"),
+  tagAdd: document.querySelector("[data-tag-add]"),
+  tagCancel: document.querySelector("[data-tag-cancel]"),
+  weaponTagRow: document.querySelector("[data-weapon-tag-row]"),
+  weaponTag: document.querySelector("[data-weapon-tag]"),
   listMenu: document.querySelector("[data-list-menu]"),
   listTitle: document.querySelector("[data-list-title]"),
   listSubtitle: document.querySelector("[data-list-subtitle]"),
@@ -310,6 +322,63 @@ function renderThumb(item) {
   return `<div class="thumb no-thumb">No image</div>`;
 }
 
+function openTagEditor(item) {
+  editingTagItemId = item.id;
+  editingTags = item.kind === "weapon" ? [getWeaponCategory(item)] : [...(item.tags || [])];
+  els.tagTitle.textContent = `Edit tags - ${item.name}`;
+
+  if (item.kind === "weapon") {
+    els.tagAddRow.classList.add("is-hidden");
+    els.tagAdd.classList.add("is-hidden");
+    els.weaponTagRow.classList.remove("is-hidden");
+    els.weaponTag.innerHTML = WEAPON_CATEGORIES.map((category) => {
+      return `<option value="${escapeHtml(category)}">${escapeHtml(category)}</option>`;
+    }).join("");
+    els.weaponTag.value = editingTags[0] || "OTHER";
+  } else {
+    els.tagAddRow.classList.remove("is-hidden");
+    els.tagAdd.classList.remove("is-hidden");
+    els.weaponTagRow.classList.add("is-hidden");
+    els.tagInput.value = "";
+  }
+
+  renderTagEditor();
+  els.tagDialog.showModal();
+}
+
+function renderTagEditor() {
+  if (!editingTags.length) {
+    els.tagEditor.innerHTML = `<span class="muted">No tags yet</span>`;
+    return;
+  }
+
+  els.tagEditor.innerHTML = editingTags.map((tag) => {
+    return `
+      <span class="editable-tag">
+        ${escapeHtml(tag)}
+        <button data-remove-tag="${escapeHtml(tag)}" type="button" aria-label="Remove ${escapeHtml(tag)}">x</button>
+      </span>
+    `;
+  }).join("");
+}
+
+function addEditingTag() {
+  const tag = els.tagInput.value.trim();
+  if (!tag || editingTags.some((entry) => entry.toLowerCase() === tag.toLowerCase())) return;
+  editingTags.push(tag);
+  els.tagInput.value = "";
+  renderTagEditor();
+}
+
+function saveEditedTags() {
+  const item = state.items.find((entry) => entry.id === editingTagItemId);
+  if (!item) return;
+  item.tags = item.kind === "weapon" ? [els.weaponTag.value] : [...editingTags];
+  saveItemOverride(item);
+  saveState();
+  renderAll();
+}
+
 function renderBrowser() {
   const items = filteredItems();
   const visible = items.slice(0, renderLimit);
@@ -474,28 +543,7 @@ document.addEventListener("click", async (event) => {
   if (editTags) {
     const item = state.items.find((entry) => entry.id === editTags.dataset.editTags);
     if (!item) return;
-    if (item.kind === "weapon") {
-      const current = getWeaponCategory(item);
-      const choice = prompt(`Pick weapon tag:\n${WEAPON_CATEGORIES.map((category, index) => `${index + 1}. ${category}`).join("\n")}`, current);
-      if (choice === null) return;
-      const normalized = String(choice).trim().toUpperCase();
-      const picked = WEAPON_CATEGORIES[Number(normalized) - 1] || WEAPON_CATEGORIES.find((category) => category === normalized);
-      if (!picked) {
-        alert(`Please choose one of: ${WEAPON_CATEGORIES.join(", ")}`);
-        return;
-      }
-      item.tags = [picked];
-      saveItemOverride(item);
-      saveState();
-      renderAll();
-      return;
-    }
-    const nextTags = prompt("Edit tags, separated by commas", (item.tags || []).join(", "));
-    if (nextTags === null) return;
-    item.tags = nextTags.split(",").map((tag) => tag.trim()).filter(Boolean);
-    saveItemOverride(item);
-    saveState();
-    renderAll();
+    openTagEditor(item);
     return;
   }
 
@@ -525,6 +573,26 @@ document.addEventListener("click", async (event) => {
 
 document.querySelector("[data-open-add]").addEventListener("click", () => els.itemDialog.showModal());
 document.querySelector("[data-close-dialog]").addEventListener("click", () => els.itemDialog.close());
+
+els.tagCancel.addEventListener("click", () => els.tagDialog.close());
+els.tagAdd.addEventListener("click", addEditingTag);
+els.tagInput.addEventListener("keydown", (event) => {
+  if (event.key === "Enter") {
+    event.preventDefault();
+    addEditingTag();
+  }
+});
+els.tagEditor.addEventListener("click", (event) => {
+  const removeButton = event.target.closest("[data-remove-tag]");
+  if (!removeButton) return;
+  editingTags = editingTags.filter((tag) => tag !== removeButton.dataset.removeTag);
+  renderTagEditor();
+});
+els.tagForm.addEventListener("submit", (event) => {
+  event.preventDefault();
+  saveEditedTags();
+  els.tagDialog.close();
+});
 
 els.itemForm.addEventListener("submit", (event) => {
   event.preventDefault();
