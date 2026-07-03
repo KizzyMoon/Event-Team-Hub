@@ -460,6 +460,11 @@ nav span {
   flex-wrap: wrap;
 }
 
+.card-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
 .tag,
 .blacklist-tag {
   border-radius: 999px;
@@ -476,9 +481,13 @@ nav span {
 }
 
 .card-actions button {
+  min-width: 0;
   min-height: 30px;
-  padding: 5px 8px;
-  font-size: 0.78rem;
+  padding: 5px 6px;
+  font-size: 0.72rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .lists {

@@ -42,18 +42,38 @@ function loadState() {
   if (saved) {
     const parsed = JSON.parse(saved);
     parsed.favoritesByUser = parsed.favoritesByUser || {};
-    return parsed;
+    parsed.deletedItemIds = parsed.deletedItemIds || [];
+    return mergeSeedItems(parsed);
   }
 
   return {
     items: seed.items || [],
     favoritesByUser: {},
+    deletedItemIds: [],
     lists: [
       { id: crypto.randomUUID(), name: "4th of July", createdBy: "Kizzy", itemIds: [] },
       { id: crypto.randomUUID(), name: "Birthday bash", createdBy: "Kizzy", itemIds: [] },
       { id: crypto.randomUUID(), name: "World Cup", createdBy: "Kizzy", itemIds: [] },
       { id: crypto.randomUUID(), name: "Carwash", createdBy: "Kizzy", itemIds: [] }
     ]
+  };
+}
+
+function mergeSeedItems(savedState) {
+  const deleted = new Set(savedState.deletedItemIds || []);
+  const merged = new Map();
+
+  (seed.items || []).forEach((item) => {
+    if (!deleted.has(item.id)) merged.set(item.id, item);
+  });
+
+  (savedState.items || []).forEach((item) => {
+    if (!deleted.has(item.id)) merged.set(item.id, item);
+  });
+
+  return {
+    ...savedState,
+    items: [...merged.values()]
   };
 }
 
@@ -206,6 +226,9 @@ function renderCard(item, options = {}) {
   const listButton = state.lists.length
     ? `<button data-add-to-list="${escapeHtml(item.id)}" type="button">+ List</button>`
     : "";
+  const editTagsButton = item.kind === "object"
+    ? `<button data-edit-tags="${escapeHtml(item.id)}" type="button">Edit tags</button>`
+    : "";
   const thumb = item.kind === "weapon"
     ? renderWeaponArt(item)
     : item.image
@@ -225,6 +248,7 @@ function renderCard(item, options = {}) {
       <div class="card-actions">
         <button data-copy="${escapeHtml(item.code)}" type="button">Copy</button>
         ${options.removeFromList ? `<button class="card-remove" data-remove-from-list="${escapeHtml(item.id)}" type="button">Remove</button>` : listButton}
+        ${editTagsButton}
         <button data-toggle-blacklist="${escapeHtml(item.id)}" type="button">${item.blacklisted ? "Unblacklist" : "Blacklist"}</button>
         <button class="card-remove" data-delete-item="${escapeHtml(item.id)}" type="button">Delete</button>
       </div>
@@ -385,6 +409,8 @@ document.addEventListener("click", async (event) => {
   if (deleteItem) {
     const item = state.items.find((entry) => entry.id === deleteItem.dataset.deleteItem);
     if (item && confirm(`Delete ${item.name}?`)) {
+      state.deletedItemIds = state.deletedItemIds || [];
+      if (!state.deletedItemIds.includes(item.id)) state.deletedItemIds.push(item.id);
       state.items = state.items.filter((entry) => entry.id !== item.id);
       state.lists.forEach((list) => list.itemIds = list.itemIds.filter((id) => id !== item.id));
       Object.values(state.favoritesByUser || {}).forEach((ids) => {
@@ -394,6 +420,18 @@ document.addEventListener("click", async (event) => {
       saveState();
       renderAll();
     }
+    return;
+  }
+
+  const editTags = event.target.closest("[data-edit-tags]");
+  if (editTags) {
+    const item = state.items.find((entry) => entry.id === editTags.dataset.editTags);
+    if (!item) return;
+    const nextTags = prompt("Edit tags, separated by commas", (item.tags || []).join(", "));
+    if (nextTags === null) return;
+    item.tags = nextTags.split(",").map((tag) => tag.trim()).filter(Boolean);
+    saveState();
+    renderAll();
     return;
   }
 
