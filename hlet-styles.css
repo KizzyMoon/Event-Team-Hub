@@ -296,6 +296,12 @@ nav span {
     0 8px 20px rgba(0, 0, 0, 0.24);
 }
 
+.weapon-art svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
 .weapon-shape,
 .weapon-shine {
   position: absolute;
