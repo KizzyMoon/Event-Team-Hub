@@ -289,24 +289,12 @@ function renderCard(item, options = {}) {
 }
 
 function renderThumb(item) {
-  if (item.image) {
-    return `<img class="thumb" src="${escapeHtml(item.image)}" alt="${escapeHtml(item.name)}" loading="lazy" />`;
+  if (item.kind === "weapon") {
+    return "";
   }
 
-  if (item.kind === "weapon") {
-    const category = getWeaponCategory(item);
-    const tileClass = {
-      Pistols: "weapon-tile-pistols",
-      SMGs: "weapon-tile-smgs",
-      Rifles: "weapon-tile-rifles",
-      Shotguns: "weapon-tile-shotguns",
-      Melee: "weapon-tile-melee",
-      Heavy: "weapon-tile-heavy",
-      Throwables: "weapon-tile-throwables",
-      Other: "weapon-tile-other"
-    }[category] || "weapon-tile-other";
-
-    return `<div class="thumb weapon-thumb ${tileClass}" role="img" aria-label="${escapeHtml(item.name)} weapon art"></div>`;
+  if (item.image) {
+    return `<img class="thumb" src="${escapeHtml(item.image)}" alt="${escapeHtml(item.name)}" loading="lazy" />`;
   }
 
   return `<div class="thumb no-thumb">No image</div>`;

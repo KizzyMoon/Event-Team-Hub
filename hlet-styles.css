@@ -284,48 +284,6 @@ nav span {
   background: #0b0c12;
 }
 
-.weapon-thumb {
-  border: 2px solid rgba(146, 158, 168, 0.32);
-  background-image: url("assets/weapon-category-sprite.png");
-  background-repeat: no-repeat;
-  background-size: 400% 200%;
-  box-shadow:
-    inset 0 0 18px rgba(255, 255, 255, 0.04),
-    0 8px 20px rgba(0, 0, 0, 0.24);
-}
-
-.weapon-tile-pistols {
-  background-position: 0% 0%;
-}
-
-.weapon-tile-smgs {
-  background-position: 33.333% 0%;
-}
-
-.weapon-tile-rifles {
-  background-position: 66.667% 0%;
-}
-
-.weapon-tile-shotguns {
-  background-position: 100% 0%;
-}
-
-.weapon-tile-melee {
-  background-position: 0% 100%;
-}
-
-.weapon-tile-heavy {
-  background-position: 33.333% 100%;
-}
-
-.weapon-tile-throwables {
-  background-position: 66.667% 100%;
-}
-
-.weapon-tile-other {
-  background-position: 100% 100%;
-}
-
 .no-thumb {
   display: grid;
   place-items: center;
