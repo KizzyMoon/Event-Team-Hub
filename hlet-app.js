@@ -507,7 +507,7 @@ document.addEventListener("click", async (event) => {
         if (favoriteIndex !== -1) ids.splice(favoriteIndex, 1);
       });
       saveState();
-      renderAll();
+      location.reload();
     }
     return;
   }
