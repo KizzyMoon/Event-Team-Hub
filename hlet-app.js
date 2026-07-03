@@ -115,12 +115,18 @@ function filteredItems() {
 function renderCategories() {
   const type = itemType();
   const categories = categoriesFor(type);
+  const availableCategories = categories.map(([category]) => category);
+  if (activeCategory !== "All" && !availableCategories.includes(activeCategory)) {
+    activeCategory = "All";
+  }
+
   els.categories.innerHTML = [
-    `<button class="${activeCategory === "All" ? "active" : ""}" data-category="All" type="button">All</button>`,
+    `<option value="All">All categories</option>`,
     ...categories.map(([category, count]) => {
-      return `<button class="${activeCategory === category ? "active" : ""}" data-category="${escapeHtml(category)}" type="button">${escapeHtml(category)} ${count}</button>`;
+      return `<option value="${escapeHtml(category)}">${escapeHtml(category)} (${count})</option>`;
     })
   ].join("");
+  els.categories.value = activeCategory;
 }
 
 function renderCard(item, options = {}) {
@@ -229,10 +235,8 @@ els.tabs.forEach((button) => {
   button.addEventListener("click", () => setTab(button.dataset.tab));
 });
 
-els.categories.addEventListener("click", (event) => {
-  const button = event.target.closest("[data-category]");
-  if (!button) return;
-  activeCategory = button.dataset.category;
+els.categories.addEventListener("change", () => {
+  activeCategory = els.categories.value;
   renderLimit = PAGE_SIZE;
   renderAll();
 });
