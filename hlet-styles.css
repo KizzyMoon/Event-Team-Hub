@@ -202,7 +202,7 @@ nav span {
 
 .toolbar {
   display: grid;
-  grid-template-columns: minmax(240px, 1fr) 180px 260px auto;
+  grid-template-columns: minmax(240px, 1fr) 180px 260px 220px auto;
   gap: 10px;
   padding: 12px 24px;
   border-bottom: 1px solid var(--line);

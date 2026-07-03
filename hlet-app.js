@@ -24,6 +24,7 @@ const els = {
   search: document.querySelector("[data-search]"),
   blacklistFilter: document.querySelector("[data-blacklist-filter]"),
   categories: document.querySelector("[data-categories]"),
+  targetList: document.querySelector("[data-target-list]"),
   title: document.querySelector("[data-title]"),
   results: document.querySelector("[data-results]"),
   grid: document.querySelector("[data-grid]"),
@@ -82,14 +83,37 @@ function showApp() {
 }
 
 function getUsefulCategory(item) {
+  if (item.kind === "weapon") {
+    return getWeaponCategory(item);
+  }
+
   const tags = item.tags || [];
   const preferred = tags.find((tag) => {
-    return !/^(size|gray|white|black|silver|red|blue|green|yellow|orange|brown|transparent|scriptable|external|lod|created|release|version|online|gtav|base game)/i.test(tag);
+    return !isHiddenTag(tag);
   });
   return preferred || item.dlc || "Unsorted";
 }
 
+function isHiddenTag(tag) {
+  return /^(roleplay|size|gray|white|black|silver|red|blue|green|yellow|orange|brown|transparent|scriptable|external|lod|created|release|version|online|gtav|base game)/i.test(tag);
+}
+
+function getWeaponCategory(item) {
+  const text = `${item.name} ${item.code} ${(item.tags || []).join(" ")}`.toLowerCase();
+  if (/\b(ammo|clip|magazine|rounds|shells)\b/.test(text)) return "Ammo";
+  if (/\b(explosive|grenade|molotov|rocket|rpg|launcher|sticky|pipe bomb|mine|bomb)\b/.test(text)) return "Explosive";
+  if (/\b(melee|knife|bat|club|hammer|hatchet|machete|wrench|crowbar|bottle|knuckle|nightstick|battleaxe|pool cue|golf club|dagger)\b/.test(text)) return "Melee";
+  return "Guns";
+}
+
 function categoriesFor(type) {
+  if (type === "weapon") {
+    const weaponCategories = ["Guns", "Melee", "Explosive", "Ammo"];
+    return weaponCategories
+      .map((category) => [category, state.items.filter((item) => item.kind === "weapon" && getWeaponCategory(item) === category).length])
+      .filter(([, count]) => count > 0);
+  }
+
   const counts = new Map();
   state.items.filter((item) => item.kind === type).forEach((item) => {
     const category = getUsefulCategory(item);
@@ -130,7 +154,7 @@ function renderCategories() {
 }
 
 function renderCard(item, options = {}) {
-  const listButton = activeListId
+  const listButton = state.lists.length
     ? `<button data-add-to-list="${escapeHtml(item.id)}" type="button">+ List</button>`
     : "";
   return `
@@ -140,7 +164,7 @@ function renderCard(item, options = {}) {
       <div class="card-code">${escapeHtml(item.code)}</div>
       <div class="tag-row">
         ${item.blacklisted ? `<span class="blacklist-tag">Blacklisted</span>` : ""}
-        ${(item.tags || []).slice(0, 3).map((tag) => `<span class="tag">${escapeHtml(tag)}</span>`).join("")}
+        ${(item.tags || []).filter((tag) => !isHiddenTag(tag)).slice(0, 3).map((tag) => `<span class="tag">${escapeHtml(tag)}</span>`).join("")}
       </div>
       <div class="meta">${escapeHtml(item.dlc || "Pleb Masters")}</div>
       <div class="card-actions">
@@ -172,6 +196,18 @@ function renderCounts() {
   document.querySelector("[data-count='lists']").textContent = state.lists.length;
 }
 
+function renderTargetListSelect() {
+  if (!els.targetList) return;
+  if (activeListId && !state.lists.some((list) => list.id === activeListId)) {
+    activeListId = state.lists[0]?.id || "";
+  }
+
+  els.targetList.innerHTML = state.lists.length
+    ? state.lists.map((list) => `<option value="${escapeHtml(list.id)}">${escapeHtml(`Add to: ${list.name}`)}</option>`).join("")
+    : `<option value="">No lists yet</option>`;
+  els.targetList.value = activeListId;
+}
+
 function renderLists() {
   els.listMenu.innerHTML = state.lists.map((list) => {
     return `<button class="list-row ${list.id === activeListId ? "active" : ""}" data-select-list="${list.id}" type="button"><span>${escapeHtml(list.name)}</span><span>${list.itemIds.length}</span></button>`;
@@ -199,6 +235,7 @@ function renderLists() {
 function renderAll() {
   renderCounts();
   renderCategories();
+  renderTargetListSelect();
   renderBrowser();
   renderLists();
 }
@@ -246,6 +283,11 @@ els.categories.addEventListener("change", () => {
     renderLimit = PAGE_SIZE;
     renderAll();
   });
+});
+
+els.targetList.addEventListener("change", () => {
+  activeListId = els.targetList.value;
+  renderLists();
 });
 
 document.addEventListener("click", async (event) => {
@@ -323,7 +365,7 @@ els.itemForm.addEventListener("submit", (event) => {
   saveState();
   els.itemForm.reset();
   els.itemDialog.close();
-  setTab(`${form.kind}s`);
+  setTab({ object: "objects", vehicle: "vehicles", weapon: "weapons" }[form.kind]);
 });
 
 document.querySelector("[data-new-list]").addEventListener("click", () => {
