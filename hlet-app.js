@@ -39,10 +39,15 @@ const els = {
 
 function loadState() {
   const saved = localStorage.getItem(STORAGE_KEY);
-  if (saved) return JSON.parse(saved);
+  if (saved) {
+    const parsed = JSON.parse(saved);
+    parsed.favoritesByUser = parsed.favoritesByUser || {};
+    return parsed;
+  }
 
   return {
     items: seed.items || [],
+    favoritesByUser: {},
     lists: [
       { id: crypto.randomUUID(), name: "4th of July", createdBy: "Kizzy", itemIds: [] },
       { id: crypto.randomUUID(), name: "Birthday bash", createdBy: "Kizzy", itemIds: [] },
@@ -73,6 +78,31 @@ function currentUser() {
   return JSON.parse(sessionStorage.getItem(SESSION_KEY) || "null");
 }
 
+function currentUserKey() {
+  return String(currentUser()?.name || "guest").trim().toLowerCase() || "guest";
+}
+
+function favoriteIds() {
+  const key = currentUserKey();
+  state.favoritesByUser[key] = state.favoritesByUser[key] || [];
+  return state.favoritesByUser[key];
+}
+
+function isFavorite(itemId) {
+  return favoriteIds().includes(itemId);
+}
+
+function toggleFavorite(itemId) {
+  const favorites = favoriteIds();
+  const index = favorites.indexOf(itemId);
+  if (index === -1) {
+    favorites.push(itemId);
+  } else {
+    favorites.splice(index, 1);
+  }
+  saveState();
+}
+
 function showApp() {
   const user = currentUser();
   if (!user) return;
@@ -100,15 +130,27 @@ function isHiddenTag(tag) {
 
 function getWeaponCategory(item) {
   const text = `${item.name} ${item.code} ${(item.tags || []).join(" ")}`.toLowerCase();
-  if (/\b(ammo|clip|magazine|rounds|shells)\b/.test(text)) return "Ammo";
-  if (/\b(explosive|grenade|molotov|rocket|rpg|launcher|sticky|pipe bomb|mine|bomb)\b/.test(text)) return "Explosive";
-  if (/\b(melee|knife|bat|club|hammer|hatchet|machete|wrench|crowbar|bottle|knuckle|nightstick|battleaxe|pool cue|golf club|dagger)\b/.test(text)) return "Melee";
-  return "Guns";
+  if (/\b(knife|bat|club|hammer|hatchet|machete|wrench|crowbar|bottle|knuckle|nightstick|battleaxe|pool cue|golf club|dagger|axe|brick|candy cane|sledgehammer|flashlight)\b/.test(text)) return "Melee";
+  if (/\b(grenade|molotov|sticky|pipe bomb|pipebomb|mine|bz gas|tear gas|snowball|ball)\b/.test(text)) return "Throwables";
+  if (/\b(rpg|rocket|launcher|minigun|railgun|widowmaker|cannon|missile|mg|machine gun|combat mg|pkm|rpk)\b/.test(text)) return "Heavy";
+  if (/\b(shotgun|mossberg|remington|sawn|sawed|winchester|bean bag)\b/.test(text)) return "Shotguns";
+  if (/\b(smg|pdw|p90|mp5|mp40|tec-9|tec9|uzi|mac-10|mac-11|skorpion|ump)\b/.test(text)) return "SMGs";
+  if (/\b(pistol|revolver|glock|beretta|deagle|five seven|fn 509|m1911|tokarev|python|colt|p226|p88|m9)\b/.test(text)) return "Pistols";
+  if (/\b(rifle|carbine|ak|m4|m16|mk18|g36|scar|fal|l96|mosin|sniper|marksman|gusenberg|m14)\b/.test(text)) return "Rifles";
+  return "Other";
 }
 
 function categoriesFor(type) {
+  if (activeTab === "favorites") {
+    return [
+      ["Objects", favoriteItems().filter((item) => item.kind === "object").length],
+      ["Vehicles", favoriteItems().filter((item) => item.kind === "vehicle").length],
+      ["Weapons", favoriteItems().filter((item) => item.kind === "weapon").length]
+    ].filter(([, count]) => count > 0);
+  }
+
   if (type === "weapon") {
-    const weaponCategories = ["Guns", "Melee", "Explosive", "Ammo"];
+    const weaponCategories = ["Pistols", "SMGs", "Rifles", "Shotguns", "Melee", "Heavy", "Throwables", "Other"];
     return weaponCategories
       .map((category) => [category, state.items.filter((item) => item.kind === "weapon" && getWeaponCategory(item) === category).length])
       .filter(([, count]) => count > 0);
@@ -126,14 +168,21 @@ function filteredItems() {
   const type = itemType();
   const search = els.search.value.trim().toLowerCase();
   const blacklist = els.blacklistFilter.value;
-  return state.items.filter((item) => {
-    if (item.kind !== type) return false;
-    if (activeCategory !== "All" && getUsefulCategory(item) !== activeCategory) return false;
+  const source = activeTab === "favorites" ? favoriteItems() : state.items;
+  return source.filter((item) => {
+    if (activeTab !== "favorites" && item.kind !== type) return false;
+    if (activeTab === "favorites" && activeCategory !== "All" && `${item.kind}s` !== activeCategory.toLowerCase()) return false;
+    if (activeTab !== "favorites" && activeCategory !== "All" && getUsefulCategory(item) !== activeCategory) return false;
     if (blacklist === "available" && item.blacklisted) return false;
     if (blacklist === "blacklisted" && !item.blacklisted) return false;
     if (!search) return true;
     return `${item.name} ${item.code} ${(item.tags || []).join(" ")} ${item.notes || ""}`.toLowerCase().includes(search);
   });
+}
+
+function favoriteItems() {
+  const ids = favoriteIds();
+  return ids.map((id) => state.items.find((item) => item.id === id)).filter(Boolean);
 }
 
 function renderCategories() {
@@ -157,9 +206,15 @@ function renderCard(item, options = {}) {
   const listButton = state.lists.length
     ? `<button data-add-to-list="${escapeHtml(item.id)}" type="button">+ List</button>`
     : "";
+  const thumb = item.kind === "weapon"
+    ? renderWeaponArt(item)
+    : item.image
+      ? `<img class="thumb" src="${escapeHtml(item.image)}" alt="${escapeHtml(item.name)}" loading="lazy" />`
+      : `<div class="thumb no-thumb">No image</div>`;
   return `
-    <article class="card ${item.blacklisted ? "blacklisted" : ""}" data-item-id="${escapeHtml(item.id)}">
-      ${item.image ? `<img class="thumb" src="${escapeHtml(item.image)}" alt="${escapeHtml(item.name)}" loading="lazy" />` : `<div class="thumb no-thumb">No image</div>`}
+    <article class="card ${item.blacklisted ? "blacklisted" : ""} ${item.kind === "weapon" ? "weapon-card" : ""}" data-item-id="${escapeHtml(item.id)}">
+      <button class="favorite-button ${isFavorite(item.id) ? "active" : ""}" data-toggle-favorite="${escapeHtml(item.id)}" type="button" aria-label="${isFavorite(item.id) ? "Remove favorite" : "Add favorite"}">★</button>
+      ${thumb}
       <h3>${escapeHtml(item.name)}</h3>
       <div class="card-code">${escapeHtml(item.code)}</div>
       <div class="tag-row">
@@ -174,6 +229,16 @@ function renderCard(item, options = {}) {
         <button class="card-remove" data-delete-item="${escapeHtml(item.id)}" type="button">Delete</button>
       </div>
     </article>
+  `;
+}
+
+function renderWeaponArt(item) {
+  const category = getWeaponCategory(item).toLowerCase();
+  return `
+    <div class="thumb weapon-art weapon-art-${escapeHtml(category)}" aria-label="${escapeHtml(item.name)} weapon art">
+      <span class="weapon-shape"></span>
+      <span class="weapon-shine"></span>
+    </div>
   `;
 }
 
@@ -193,6 +258,7 @@ function renderCounts() {
     const target = document.querySelector(`[data-count="${kind}"]`);
     if (target) target.textContent = state.items.filter((item) => item.kind === kind).length.toLocaleString();
   });
+  document.querySelector("[data-count='favorites']").textContent = favoriteItems().length.toLocaleString();
   document.querySelector("[data-count='lists']").textContent = state.lists.length;
 }
 
@@ -308,12 +374,23 @@ document.addEventListener("click", async (event) => {
     return;
   }
 
+  const favorite = event.target.closest("[data-toggle-favorite]");
+  if (favorite) {
+    toggleFavorite(favorite.dataset.toggleFavorite);
+    renderAll();
+    return;
+  }
+
   const deleteItem = event.target.closest("[data-delete-item]");
   if (deleteItem) {
     const item = state.items.find((entry) => entry.id === deleteItem.dataset.deleteItem);
     if (item && confirm(`Delete ${item.name}?`)) {
       state.items = state.items.filter((entry) => entry.id !== item.id);
       state.lists.forEach((list) => list.itemIds = list.itemIds.filter((id) => id !== item.id));
+      Object.values(state.favoritesByUser || {}).forEach((ids) => {
+        const favoriteIndex = ids.indexOf(item.id);
+        if (favoriteIndex !== -1) ids.splice(favoriteIndex, 1);
+      });
       saveState();
       renderAll();
     }
