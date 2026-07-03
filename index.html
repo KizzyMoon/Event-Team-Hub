@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Events Team Hub</title>
+    <link rel="stylesheet" href="hlet-styles.css" />
+  </head>
+  <body>
+    <section class="login-view" data-login-view>
+      <form class="login-card" data-login-form>
+        <p>Highlife RP</p>
+        <h1>Events Team Hub</h1>
+        <label>Your name<input name="name" autocomplete="name" required /></label>
+        <label>Password<input name="password" type="password" autocomplete="current-password" required /></label>
+        <button type="submit">Enter hub</button>
+        <span data-login-status></span>
+      </form>
+    </section>
+
+    <main class="app is-hidden" data-app>
+      <header class="topbar">
+        <a class="brand" href="#objects" data-tab="objects">
+          <strong>Events Team Hub</strong>
+          <span>Highlife RP</span>
+        </a>
+        <nav>
+          <button class="active" data-tab="objects" type="button">Objects <span data-count="object">0</span></button>
+          <button data-tab="vehicles" type="button">Vehicles <span data-count="vehicle">0</span></button>
+          <button data-tab="weapons" type="button">Weapons <span data-count="weapon">0</span></button>
+          <button data-tab="lists" type="button">Lists <span data-count="lists">0</span></button>
+        </nav>
+        <div class="account">
+          <span data-user-name></span>
+          <button data-logout type="button">Logout</button>
+        </div>
+      </header>
+
+      <section class="toolbar" data-toolbar>
+        <input data-search type="search" placeholder="Search names, spawn codes, categories..." />
+        <select data-blacklist-filter>
+          <option value="all">All items</option>
+          <option value="available">Not blacklisted</option>
+          <option value="blacklisted">Blacklisted</option>
+        </select>
+        <button data-open-add type="button">Add item</button>
+        <div class="categories" data-categories></div>
+      </section>
+
+      <section class="browser" data-browser>
+        <div class="section-head">
+          <h2 data-title>Objects</h2>
+          <span data-results>0 items</span>
+        </div>
+        <div class="grid" data-grid></div>
+      </section>
+
+      <section class="lists is-hidden" data-lists>
+        <aside>
+          <div class="list-head">
+            <span>Shared lists</span>
+            <button data-new-list type="button">+ New</button>
+          </div>
+          <div data-list-menu></div>
+        </aside>
+        <article>
+          <div class="section-head">
+            <div>
+              <h2 data-list-title>No list selected</h2>
+              <span data-list-subtitle>Create or select a list</span>
+            </div>
+            <div class="list-tools">
+              <input data-list-search type="search" placeholder="Search list..." />
+              <button data-copy-list type="button">Copy all</button>
+              <button data-delete-list type="button">Delete</button>
+            </div>
+          </div>
+          <div class="grid compact" data-list-items></div>
+        </article>
+      </section>
+    </main>
+
+    <dialog data-item-dialog>
+      <form method="dialog" data-item-form>
+        <h3>Add custom item</h3>
+        <label>Name<input name="name" required /></label>
+        <label>Spawn code<input name="code" required /></label>
+        <label>Type
+          <select name="kind">
+            <option value="object">Object</option>
+            <option value="vehicle">Vehicle</option>
+            <option value="weapon">Weapon</option>
+          </select>
+        </label>
+        <label>Image URL<input name="image" placeholder="https://..." /></label>
+        <label>Categories<input name="tags" placeholder="Stage, Party, Police" /></label>
+        <label class="check"><input name="blacklisted" type="checkbox" /> Blacklisted</label>
+        <label>Notes<textarea name="notes" rows="3"></textarea></label>
+        <div class="dialog-actions">
+          <button data-close-dialog type="button">Cancel</button>
+          <button type="submit">Save</button>
+        </div>
+      </form>
+    </dialog>
+
+    <script src="hlet-data.js"></script>
+    <script src="hlet-app.js"></script>
+  </body>
+</html>
