@@ -284,156 +284,46 @@ nav span {
   background: #0b0c12;
 }
 
-.weapon-art {
-  position: relative;
-  overflow: hidden;
-  border: 2px solid rgba(146, 158, 168, 0.28);
-  background:
-    radial-gradient(circle at 24% 18%, rgba(255, 255, 255, 0.08), transparent 26%),
-    linear-gradient(145deg, #20292d, #10171a 62%, #070b0d);
+.weapon-thumb {
+  border: 2px solid rgba(146, 158, 168, 0.32);
+  background-image: url("assets/weapon-category-sprite.png");
+  background-repeat: no-repeat;
+  background-size: 400% 200%;
   box-shadow:
     inset 0 0 18px rgba(255, 255, 255, 0.04),
     0 8px 20px rgba(0, 0, 0, 0.24);
 }
 
-.weapon-art svg {
-  display: block;
-  width: 100%;
-  height: 100%;
+.weapon-tile-pistols {
+  background-position: 0% 0%;
 }
 
-.weapon-shape,
-.weapon-shine {
-  position: absolute;
-  display: block;
-  pointer-events: none;
+.weapon-tile-smgs {
+  background-position: 33.333% 0%;
 }
 
-.weapon-shape {
-  left: 16%;
-  top: 43%;
-  width: 68%;
-  height: 16%;
-  border-radius: 7px;
-  background: linear-gradient(90deg, #111, #3e4648 36%, #161b1d);
-  box-shadow:
-    0 7px 0 #0b0e10,
-    20px 18px 0 -5px #101315,
-    45px -16px 0 -7px #20282b;
-  transform: rotate(-11deg);
+.weapon-tile-rifles {
+  background-position: 66.667% 0%;
 }
 
-.weapon-shape::before,
-.weapon-shape::after {
-  content: "";
-  position: absolute;
-  display: block;
+.weapon-tile-shotguns {
+  background-position: 100% 0%;
 }
 
-.weapon-shape::before {
-  left: 18%;
-  top: 82%;
-  width: 16%;
-  height: 90%;
-  border-radius: 3px;
-  background: linear-gradient(#1b2022, #050607);
-  transform: rotate(14deg);
+.weapon-tile-melee {
+  background-position: 0% 100%;
 }
 
-.weapon-shape::after {
-  right: 10%;
-  top: -28%;
-  width: 20%;
-  height: 46%;
-  border-radius: 999px;
-  background: #232b2e;
+.weapon-tile-heavy {
+  background-position: 33.333% 100%;
 }
 
-.weapon-shine {
-  left: 23%;
-  top: 40%;
-  width: 42%;
-  height: 2px;
-  background: rgba(255, 255, 255, 0.28);
-  transform: rotate(-11deg);
+.weapon-tile-throwables {
+  background-position: 66.667% 100%;
 }
 
-.weapon-art-pistols .weapon-shape {
-  left: 25%;
-  width: 42%;
-  height: 18%;
-  box-shadow:
-    0 8px 0 #0b0e10,
-    14px 19px 0 -5px #ca5c2d;
-}
-
-.weapon-art-smgs .weapon-shape {
-  left: 18%;
-  width: 54%;
-}
-
-.weapon-art-rifles .weapon-shape,
-.weapon-art-heavy .weapon-shape {
-  left: 11%;
-  width: 76%;
-}
-
-.weapon-art-shotguns .weapon-shape {
-  left: 11%;
-  width: 73%;
-  background: linear-gradient(90deg, #6d351d, #111 28%, #3e4648 58%, #111);
-}
-
-.weapon-art-heavy .weapon-shape {
-  height: 18%;
-  box-shadow:
-    0 8px 0 #0b0e10,
-    30px 22px 0 -5px #2f371d,
-    48px -17px 0 -5px #20282b;
-}
-
-.weapon-art-melee .weapon-shape {
-  left: 24%;
-  top: 46%;
-  width: 50%;
-  height: 9%;
-  border-radius: 999px 6px 6px 999px;
-  background: linear-gradient(90deg, #6d3a21 0 24%, #cbd2d5 25%, #6f7a80);
-  box-shadow: none;
-  transform: rotate(-36deg);
-}
-
-.weapon-art-melee .weapon-shape::before,
-.weapon-art-melee .weapon-shape::after {
-  display: none;
-}
-
-.weapon-art-throwables .weapon-shape,
-.weapon-art-other .weapon-shape {
-  left: 37%;
-  top: 30%;
-  width: 26%;
-  height: 40%;
-  border-radius: 45% 45% 38% 38%;
-  background: linear-gradient(145deg, #3f4c37, #111712);
-  box-shadow: inset -6px -8px 0 rgba(0, 0, 0, 0.26);
-  transform: rotate(-10deg);
-}
-
-.weapon-art-throwables .weapon-shape::before,
-.weapon-art-other .weapon-shape::before {
-  left: 34%;
-  top: -18%;
-  width: 34%;
-  height: 20%;
-  border-radius: 3px;
-  background: #22292b;
-  transform: none;
-}
-
-.weapon-art-throwables .weapon-shape::after,
-.weapon-art-other .weapon-shape::after {
-  display: none;
+.weapon-tile-other {
+  background-position: 100% 100%;
 }
 
 .no-thumb {

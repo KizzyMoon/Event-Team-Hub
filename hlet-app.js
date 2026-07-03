@@ -43,11 +43,15 @@ function loadState() {
     const parsed = JSON.parse(saved);
     parsed.favoritesByUser = parsed.favoritesByUser || {};
     parsed.deletedItemIds = parsed.deletedItemIds || [];
+    parsed.customItems = parsed.customItems || (parsed.items || []).filter((item) => String(item.id || "").startsWith("custom:"));
+    parsed.itemOverrides = parsed.itemOverrides || {};
     return mergeSeedItems(parsed);
   }
 
   return {
     items: seed.items || [],
+    customItems: [],
+    itemOverrides: {},
     favoritesByUser: {},
     deletedItemIds: [],
     lists: [
@@ -64,10 +68,15 @@ function mergeSeedItems(savedState) {
   const merged = new Map();
 
   (seed.items || []).forEach((item) => {
-    if (!deleted.has(item.id)) merged.set(item.id, item);
+    if (!deleted.has(item.id)) {
+      merged.set(item.id, {
+        ...item,
+        ...(savedState.itemOverrides?.[item.id] || {})
+      });
+    }
   });
 
-  (savedState.items || []).forEach((item) => {
+  (savedState.customItems || []).forEach((item) => {
     if (!deleted.has(item.id)) merged.set(item.id, item);
   });
 
@@ -78,7 +87,19 @@ function mergeSeedItems(savedState) {
 }
 
 function saveState() {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  const savedState = {
+    customItems: state.customItems || [],
+    itemOverrides: state.itemOverrides || {},
+    favoritesByUser: state.favoritesByUser || {},
+    deletedItemIds: state.deletedItemIds || [],
+    lists: state.lists || []
+  };
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(savedState));
+  } catch (error) {
+    localStorage.removeItem(STORAGE_KEY);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(savedState));
+  }
 }
 
 function escapeHtml(value) {
@@ -121,6 +142,21 @@ function toggleFavorite(itemId) {
     favorites.splice(index, 1);
   }
   saveState();
+}
+
+function saveItemOverride(item) {
+  if (String(item.id || "").startsWith("custom:")) {
+    state.customItems = (state.customItems || []).map((customItem) => customItem.id === item.id ? item : customItem);
+    return;
+  }
+
+  state.itemOverrides = state.itemOverrides || {};
+  state.itemOverrides[item.id] = {
+    ...(state.itemOverrides[item.id] || {}),
+    tags: item.tags || [],
+    blacklisted: Boolean(item.blacklisted),
+    notes: item.notes || ""
+  };
 }
 
 function showApp() {
@@ -229,14 +265,10 @@ function renderCard(item, options = {}) {
   const editTagsButton = item.kind === "object"
     ? `<button data-edit-tags="${escapeHtml(item.id)}" type="button">Edit tags</button>`
     : "";
-  const thumb = item.kind === "weapon"
-    ? renderWeaponArt(item)
-    : item.image
-      ? `<img class="thumb" src="${escapeHtml(item.image)}" alt="${escapeHtml(item.name)}" loading="lazy" />`
-      : `<div class="thumb no-thumb">No image</div>`;
+  const thumb = renderThumb(item);
   return `
     <article class="card ${item.blacklisted ? "blacklisted" : ""} ${item.kind === "weapon" ? "weapon-card" : ""}" data-item-id="${escapeHtml(item.id)}">
-      <button class="favorite-button ${isFavorite(item.id) ? "active" : ""}" data-toggle-favorite="${escapeHtml(item.id)}" type="button" aria-label="${isFavorite(item.id) ? "Remove favorite" : "Add favorite"}">★</button>
+      <button class="favorite-button ${isFavorite(item.id) ? "active" : ""}" data-toggle-favorite="${escapeHtml(item.id)}" type="button" aria-label="${isFavorite(item.id) ? "Remove favorite" : "Add favorite"}">&#9733;</button>
       ${thumb}
       <h3>${escapeHtml(item.name)}</h3>
       <div class="card-code">${escapeHtml(item.code)}</div>
@@ -256,103 +288,28 @@ function renderCard(item, options = {}) {
   `;
 }
 
-function renderWeaponArt(item) {
-  const category = getWeaponCategory(item);
-  const key = category.toLowerCase();
-  const art = {
-    Pistols: `
-      <g transform="translate(35 54) rotate(-10)">
-        <rect x="0" y="0" width="86" height="26" rx="7" fill="#15191b" stroke="#596167" stroke-width="3"/>
-        <rect x="13" y="-7" width="48" height="10" rx="4" fill="#252b2d" stroke="#697278" stroke-width="2"/>
-        <rect x="59" y="6" width="28" height="9" rx="4" fill="#0a0c0d"/>
-        <path d="M29 23 L48 23 L40 67 L21 67 Z" fill="#c65d2f" stroke="#382018" stroke-width="3"/>
-        <circle cx="35" cy="36" r="3" fill="#f1b36d"/>
-        <circle cx="31" cy="52" r="3" fill="#f1b36d"/>
-        <path d="M18 24 q15 18 1 35" fill="none" stroke="#0a0c0d" stroke-width="7" stroke-linecap="round"/>
-      </g>
-    `,
-    SMGs: `
-      <g transform="translate(24 50) rotate(-12)">
-        <rect x="0" y="0" width="140" height="24" rx="6" fill="#131719" stroke="#5e676d" stroke-width="3"/>
-        <rect x="20" y="-13" width="54" height="12" rx="4" fill="#252c2f" stroke="#667077" stroke-width="2"/>
-        <rect x="103" y="7" width="42" height="10" rx="4" fill="#080a0b"/>
-        <path d="M42 23 L61 23 L57 72 L38 72 Z" fill="#171c1e" stroke="#586168" stroke-width="3"/>
-        <path d="M11 19 L-17 34 L-10 45 L21 24 Z" fill="#20272a" stroke="#5f6970" stroke-width="3"/>
-        <path d="M80 24 L98 24 L96 54 L82 54 Z" fill="#111416" stroke="#566067" stroke-width="3"/>
-      </g>
-    `,
-    Rifles: `
-      <g transform="translate(17 51) rotate(-12)">
-        <rect x="21" y="0" width="145" height="22" rx="6" fill="#15191b" stroke="#626c72" stroke-width="3"/>
-        <rect x="64" y="-19" width="42" height="16" rx="3" fill="#101315" stroke="#616b72" stroke-width="3"/>
-        <path d="M20 8 L-20 30 L-11 46 L36 22 Z" fill="#1e2528" stroke="#687279" stroke-width="3"/>
-        <path d="M68 22 L90 22 L85 74 L62 74 Z" fill="#20272a" stroke="#687279" stroke-width="3"/>
-        <rect x="150" y="6" width="43" height="9" rx="4" fill="#090b0c"/>
-        <rect x="108" y="18" width="25" height="38" rx="2" fill="#2f241b" stroke="#7b6042" stroke-width="3"/>
-        <path d="M46 -2 h30 M113 3 h24" stroke="#d6a75f" stroke-width="3" stroke-linecap="round"/>
-      </g>
-    `,
-    Shotguns: `
-      <g transform="translate(14 53) rotate(-12)">
-        <rect x="38" y="1" width="132" height="20" rx="6" fill="#111517" stroke="#626b72" stroke-width="3"/>
-        <rect x="111" y="-7" width="67" height="8" rx="4" fill="#080a0b"/>
-        <path d="M39 7 L-9 31 L-1 48 L50 21 Z" fill="#6d351d" stroke="#9a6137" stroke-width="3"/>
-        <path d="M76 22 L99 22 L94 66 L74 66 Z" fill="#15191b" stroke="#626b72" stroke-width="3"/>
-        <circle cx="125" cy="10" r="10" fill="#2b3033" stroke="#747e85" stroke-width="3"/>
-      </g>
-    `,
-    Melee: `
-      <g transform="translate(51 20) rotate(42)">
-        <path d="M60 0 C72 22 73 48 60 88 C47 48 48 22 60 0 Z" fill="#cdd3d6" stroke="#7d878d" stroke-width="4"/>
-        <path d="M56 78 h8 v88 h-8 Z" fill="#5a321f" stroke="#22140e" stroke-width="4"/>
-        <rect x="40" y="74" width="40" height="12" rx="5" fill="#1d2225" stroke="#69737a" stroke-width="3"/>
-        <circle cx="60" cy="112" r="4" fill="#c7924e"/>
-      </g>
-    `,
-    Heavy: `
-      <g transform="translate(8 48) rotate(-9)">
-        <rect x="10" y="2" width="157" height="28" rx="8" fill="#131719" stroke="#657077" stroke-width="3"/>
-        <rect x="132" y="9" width="68" height="12" rx="6" fill="#07090a"/>
-        <path d="M10 19 L-2 45 L30 39 L44 29 Z" fill="#2d351f" stroke="#667057" stroke-width="3"/>
-        <path d="M61 29 L83 29 L77 85 L53 85 Z" fill="#111517" stroke="#626c72" stroke-width="3"/>
-        <rect x="95" y="31" width="44" height="22" rx="5" fill="#46512b" stroke="#7e8a56" stroke-width="3"/>
-        <path d="M31 2 h44 M89 3 h34" stroke="#c99b51" stroke-width="3" stroke-linecap="round"/>
-      </g>
-    `,
-    Throwables: `
-      <g transform="translate(75 22)">
-        <path d="M34 11 h34 v20 h-34 Z" fill="#1a2022" stroke="#677179" stroke-width="3"/>
-        <path d="M23 30 C11 45 6 78 15 103 C24 129 78 129 88 103 C97 78 91 45 79 30 Z" fill="#3e4f34" stroke="#798970" stroke-width="4"/>
-        <path d="M31 51 C47 43 65 43 78 53" fill="none" stroke="#9aad86" stroke-width="4" opacity=".75"/>
-        <path d="M53 8 C78 3 86 20 92 31" fill="none" stroke="#b88a4e" stroke-width="5" stroke-linecap="round"/>
-      </g>
-    `,
-    Other: `
-      <g transform="translate(55 30)">
-        <rect x="11" y="16" width="96" height="92" rx="12" fill="#1a2225" stroke="#69737a" stroke-width="4"/>
-        <rect x="28" y="34" width="59" height="28" rx="4" fill="#5a7f57" stroke="#95bb82" stroke-width="3"/>
-        <circle cx="32" cy="82" r="6" fill="#d74d37"/>
-        <circle cx="54" cy="82" r="6" fill="#d3b348"/>
-        <circle cx="76" cy="82" r="6" fill="#4aa765"/>
-        <path d="M70 16 C80 -2 104 -2 115 11" fill="none" stroke="#20272a" stroke-width="7" stroke-linecap="round"/>
-      </g>
-    `
-  };
-  return `
-    <div class="thumb weapon-art weapon-art-${escapeHtml(key)}" aria-label="${escapeHtml(item.name)} weapon art">
-      <svg viewBox="0 0 220 140" role="img" aria-hidden="true">
-        <defs>
-          <filter id="weapon-shadow-${escapeHtml(item.id).replace(/[^a-z0-9]/gi, "-")}" x="-20%" y="-20%" width="140%" height="150%">
-            <feDropShadow dx="0" dy="6" stdDeviation="3" flood-color="#000" flood-opacity=".65"/>
-          </filter>
-        </defs>
-        <rect x="1" y="1" width="218" height="138" rx="18" fill="url(#weapon-bg)" opacity="0"/>
-        <g filter="url(#weapon-shadow-${escapeHtml(item.id).replace(/[^a-z0-9]/gi, "-")})">
-          ${art[category] || art.Other}
-        </g>
-      </svg>
-    </div>
-  `;
+function renderThumb(item) {
+  if (item.image) {
+    return `<img class="thumb" src="${escapeHtml(item.image)}" alt="${escapeHtml(item.name)}" loading="lazy" />`;
+  }
+
+  if (item.kind === "weapon") {
+    const category = getWeaponCategory(item);
+    const tileClass = {
+      Pistols: "weapon-tile-pistols",
+      SMGs: "weapon-tile-smgs",
+      Rifles: "weapon-tile-rifles",
+      Shotguns: "weapon-tile-shotguns",
+      Melee: "weapon-tile-melee",
+      Heavy: "weapon-tile-heavy",
+      Throwables: "weapon-tile-throwables",
+      Other: "weapon-tile-other"
+    }[category] || "weapon-tile-other";
+
+    return `<div class="thumb weapon-thumb ${tileClass}" role="img" aria-label="${escapeHtml(item.name)} weapon art"></div>`;
+  }
+
+  return `<div class="thumb no-thumb">No image</div>`;
 }
 
 function renderBrowser() {
@@ -482,6 +439,7 @@ document.addEventListener("click", async (event) => {
   if (blacklist) {
     const item = state.items.find((entry) => entry.id === blacklist.dataset.toggleBlacklist);
     if (item) item.blacklisted = !item.blacklisted;
+    if (item) saveItemOverride(item);
     saveState();
     renderAll();
     return;
@@ -501,6 +459,8 @@ document.addEventListener("click", async (event) => {
       state.deletedItemIds = state.deletedItemIds || [];
       if (!state.deletedItemIds.includes(item.id)) state.deletedItemIds.push(item.id);
       state.items = state.items.filter((entry) => entry.id !== item.id);
+      state.customItems = (state.customItems || []).filter((entry) => entry.id !== item.id);
+      if (state.itemOverrides) delete state.itemOverrides[item.id];
       state.lists.forEach((list) => list.itemIds = list.itemIds.filter((id) => id !== item.id));
       Object.values(state.favoritesByUser || {}).forEach((ids) => {
         const favoriteIndex = ids.indexOf(item.id);
@@ -519,6 +479,7 @@ document.addEventListener("click", async (event) => {
     const nextTags = prompt("Edit tags, separated by commas", (item.tags || []).join(", "));
     if (nextTags === null) return;
     item.tags = nextTags.split(",").map((tag) => tag.trim()).filter(Boolean);
+    saveItemOverride(item);
     saveState();
     renderAll();
     return;
@@ -566,6 +527,8 @@ els.itemForm.addEventListener("submit", (event) => {
     notes: form.notes || ""
   };
   state.items.unshift(item);
+  state.customItems = state.customItems || [];
+  state.customItems.unshift(item);
   saveState();
   els.itemForm.reset();
   els.itemDialog.close();
