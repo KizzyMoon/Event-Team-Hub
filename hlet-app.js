@@ -288,9 +288,7 @@ function renderCard(item, options = {}) {
         ${item.blacklisted ? `<span class="blacklist-tag">Blacklisted</span>` : ""}
         ${visibleTags(item).map((tag) => `<span class="tag">${escapeHtml(tag)}</span>`).join("")}
       </div>
-      <div class="meta">${escapeHtml(item.dlc || "Pleb Masters")}</div>
       <div class="card-actions">
-        <button data-copy="${escapeHtml(item.code)}" type="button">Copy</button>
         ${options.removeFromList ? `<button class="card-remove" data-remove-from-list="${escapeHtml(item.id)}" type="button">Remove</button>` : listButton}
         ${editTagsButton}
         <button data-toggle-blacklist="${escapeHtml(item.id)}" type="button">${item.blacklisted ? "Unblacklist" : "Blacklist"}</button>
@@ -495,11 +493,14 @@ els.targetList.addEventListener("change", () => {
 });
 
 document.addEventListener("click", async (event) => {
-  const copy = event.target.closest("[data-copy]");
-  if (copy) {
-    await navigator.clipboard.writeText(copy.dataset.copy);
-    copy.textContent = "Copied";
-    setTimeout(() => copy.textContent = "Copy", 900);
+  const card = event.target.closest("[data-item-id]");
+  const action = event.target.closest("button, input, select, textarea, a");
+  if (card && !action) {
+    const item = state.items.find((entry) => entry.id === card.dataset.itemId);
+    if (!item) return;
+    await navigator.clipboard.writeText(item.code);
+    card.classList.add("copied");
+    setTimeout(() => card.classList.remove("copied"), 700);
     return;
   }
 

@@ -64,7 +64,6 @@ button {
 .section-head span,
 .list-head,
 .card-code,
-.meta,
 label {
   color: var(--muted);
 }
@@ -247,6 +246,13 @@ nav span {
   border-radius: 8px;
   background: var(--panel);
   padding: 12px;
+  cursor: pointer;
+  transition: border-color 0.16s ease, box-shadow 0.16s ease;
+}
+
+.card.copied {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px rgba(196, 123, 255, 0.45);
 }
 
 .card.blacklisted {
