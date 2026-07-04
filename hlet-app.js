@@ -27,6 +27,7 @@ const els = {
   search: document.querySelector("[data-search]"),
   blacklistFilter: document.querySelector("[data-blacklist-filter]"),
   categories: document.querySelector("[data-categories]"),
+  categoryChips: document.querySelector("[data-category-chips]"),
   targetList: document.querySelector("[data-target-list]"),
   title: document.querySelector("[data-title]"),
   results: document.querySelector("[data-results]"),
@@ -279,6 +280,20 @@ function renderCategories() {
     activeCategory = "All";
   }
 
+  const chipMode = activeTab === "weapons";
+  els.categories.classList.toggle("is-hidden", chipMode);
+  els.categoryChips.classList.toggle("is-hidden", !chipMode);
+
+  if (chipMode) {
+    els.categoryChips.innerHTML = [
+      `<button class="${activeCategory === "All" ? "active" : ""}" data-category-chip="All" type="button">All</button>`,
+      ...categories.map(([category]) => {
+        return `<button class="${activeCategory === category ? "active" : ""}" data-category-chip="${escapeHtml(category)}" type="button">${escapeHtml(displayWeaponCategory(category))}</button>`;
+      })
+    ].join("");
+    return;
+  }
+
   els.categories.innerHTML = [
     `<option value="All">All categories</option>`,
     ...categories.map(([category, count]) => {
@@ -286,6 +301,19 @@ function renderCategories() {
     })
   ].join("");
   els.categories.value = activeCategory;
+}
+
+function displayWeaponCategory(category) {
+  return {
+    HEAVY: "Heavy",
+    SMGS: "SMGs",
+    THROWABLES: "Throwables",
+    MELEE: "Melee",
+    OTHER: "Other",
+    PISTOLS: "Pistols",
+    SHOTGUNS: "Shotguns",
+    RIFLES: "Rifles"
+  }[category] || category;
 }
 
 function renderCard(item, options = {}) {
@@ -465,6 +493,12 @@ function setTab(tab) {
   renderLimit = PAGE_SIZE;
   activeCategory = "All";
   els.tabs.forEach((button) => button.classList.toggle("active", button.dataset.tab === tab));
+  els.search.placeholder = {
+    objects: "Search objects...",
+    vehicles: "Search vehicles...",
+    weapons: "Search weapons...",
+    favorites: "Search favorites..."
+  }[tab] || "Search names, spawn codes, categories...";
   const listMode = tab === "lists";
   els.toolbar.classList.toggle("is-hidden", listMode);
   els.browser.classList.toggle("is-hidden", listMode);
@@ -494,6 +528,14 @@ els.tabs.forEach((button) => {
 
 els.categories.addEventListener("change", () => {
   activeCategory = els.categories.value;
+  renderLimit = PAGE_SIZE;
+  renderAll();
+});
+
+els.categoryChips.addEventListener("click", (event) => {
+  const chip = event.target.closest("[data-category-chip]");
+  if (!chip) return;
+  activeCategory = chip.dataset.categoryChip;
   renderLimit = PAGE_SIZE;
   renderAll();
 });

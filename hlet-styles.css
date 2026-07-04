@@ -208,6 +208,27 @@ nav span {
   background: #0d0f17;
 }
 
+.category-chips {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  align-items: center;
+  grid-column: span 3;
+}
+
+.category-chips button {
+  min-height: 28px;
+  padding: 5px 11px;
+  border-radius: 999px;
+  color: var(--muted);
+}
+
+.category-chips button.active {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: #13091d;
+}
+
 .browser,
 .lists article {
   padding: 24px;
