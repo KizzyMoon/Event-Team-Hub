@@ -412,11 +412,11 @@ function favoriteItems() {
   return ids.map((id) => state.items.find((item) => item.id === id)).filter(Boolean);
 }
 
-function renderCategories() {
+function renderCategories(options = {}) {
   const type = itemType();
   const categories = categoriesFor(type);
   const availableCategories = categories.map(([category]) => category);
-  if (activeCategory !== "All" && !availableCategories.includes(activeCategory)) {
+  if (!options.keepMissingCategory && activeCategory !== "All" && !availableCategories.includes(activeCategory)) {
     activeCategory = "All";
   }
 
@@ -436,6 +436,9 @@ function renderCategories() {
 
   els.categories.innerHTML = [
     `<option value="All">All categories</option>`,
+    ...(activeCategory !== "All" && !availableCategories.includes(activeCategory)
+      ? [`<option value="${escapeHtml(activeCategory)}">${escapeHtml(activeCategory)} (0)</option>`]
+      : []),
     ...categories.map(([category, count]) => {
       return `<option value="${escapeHtml(category)}">${escapeHtml(category)} (${count})</option>`;
     })
@@ -702,9 +705,9 @@ function renderSettings() {
   }).join("");
 }
 
-function renderAll() {
+function renderAll(options = {}) {
   renderCounts();
-  renderCategories();
+  renderCategories(options);
   renderBrowser();
   renderFavorites();
   renderLists();
@@ -858,8 +861,7 @@ document.addEventListener("click", async (event) => {
         if (favoriteIndex !== -1) ids.splice(favoriteIndex, 1);
       });
       saveState();
-      renderLimit = PAGE_SIZE;
-      renderAll();
+      renderAll({ keepMissingCategory: true });
     }
     return;
   }
