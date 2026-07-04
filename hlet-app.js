@@ -502,7 +502,7 @@ function renderBrowser() {
   els.results.textContent = `${items.length.toLocaleString()} items`;
   els.grid.innerHTML = visible.map((item) => renderCard(item)).join("");
   if (items.length > visible.length) {
-    els.grid.insertAdjacentHTML("beforeend", `<button class="card" data-load-more type="button">Load more (${(items.length - visible.length).toLocaleString()} left)</button>`);
+    els.grid.insertAdjacentHTML("beforeend", `<button class="load-more-card" data-load-more type="button">Load more (${(items.length - visible.length).toLocaleString()} left)</button>`);
   }
 }
 
@@ -728,6 +728,16 @@ els.settingsPanels.addEventListener("click", (event) => {
 });
 
 document.addEventListener("click", async (event) => {
+  const loadMore = event.target.closest("[data-load-more]");
+  if (loadMore) {
+    event.preventDefault();
+    event.stopPropagation();
+    const itemCount = filteredItems().length;
+    renderLimit = Math.min(itemCount, renderLimit + PAGE_SIZE);
+    renderAll();
+    return;
+  }
+
   const card = event.target.closest("[data-item-id]");
   const action = event.target.closest("button, input, select, textarea, a");
   if (card && !action) {
@@ -804,10 +814,6 @@ document.addEventListener("click", async (event) => {
     return;
   }
 
-  if (event.target.closest("[data-load-more]")) {
-    renderLimit += PAGE_SIZE;
-    renderBrowser();
-  }
 });
 
 document.querySelector("[data-open-add]").addEventListener("click", () => {

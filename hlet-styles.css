@@ -292,6 +292,15 @@ nav span {
   border-color: rgba(255, 92, 103, 0.72);
 }
 
+.load-more-card {
+  min-height: 134px;
+  border-color: var(--accent);
+  border-radius: 8px;
+  background: var(--panel);
+  color: var(--text);
+  font-weight: 800;
+}
+
 .weapon-card {
   align-content: start;
 }
