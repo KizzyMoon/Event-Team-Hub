@@ -201,11 +201,21 @@ nav span {
 
 .toolbar {
   display: grid;
-  grid-template-columns: minmax(240px, 1fr) 180px 260px 220px auto;
+  grid-template-columns: minmax(220px, 340px) minmax(0, 1fr) 160px 220px auto;
   gap: 10px;
-  padding: 12px 24px;
+  align-items: center;
+  padding: 10px 24px;
   border-bottom: 1px solid var(--line);
   background: #0d0f17;
+}
+
+.toolbar input,
+.toolbar select,
+.toolbar button {
+  min-height: 34px;
+  height: 34px;
+  padding: 6px 10px;
+  font-size: 0.85rem;
 }
 
 .category-chips {
@@ -213,7 +223,7 @@ nav span {
   gap: 6px;
   flex-wrap: wrap;
   align-items: center;
-  grid-column: span 3;
+  grid-column: span 2;
 }
 
 .category-chips button {

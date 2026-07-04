@@ -55,7 +55,6 @@ const els = {
   blacklistFilter: document.querySelector("[data-blacklist-filter]"),
   categories: document.querySelector("[data-categories]"),
   categoryChips: document.querySelector("[data-category-chips]"),
-  targetList: document.querySelector("[data-target-list]"),
   title: document.querySelector("[data-title]"),
   results: document.querySelector("[data-results]"),
   grid: document.querySelector("[data-grid]"),
@@ -507,19 +506,13 @@ function renderCounts() {
   document.querySelector("[data-count='lists']").textContent = state.lists.length;
 }
 
-function renderTargetListSelect() {
-  if (!els.targetList) return;
-  if (activeListId && !state.lists.some((list) => list.id === activeListId)) {
-    activeListId = state.lists[0]?.id || "";
-  }
-
-  els.targetList.innerHTML = state.lists.length
-    ? state.lists.map((list) => `<option value="${escapeHtml(list.id)}">${escapeHtml(`Add to: ${list.name}`)}</option>`).join("")
-    : `<option value="">No lists yet</option>`;
-  els.targetList.value = activeListId;
+function ensureActiveList() {
+  if (activeListId && state.lists.some((list) => list.id === activeListId)) return;
+  activeListId = state.lists[0]?.id || "";
 }
 
 function renderLists() {
+  ensureActiveList();
   els.listMenu.innerHTML = state.lists.map((list) => {
     return `<button class="list-row ${list.id === activeListId ? "active" : ""}" data-select-list="${list.id}" type="button"><span>${escapeHtml(list.name)}</span><span>${list.itemIds.length}</span></button>`;
   }).join("");
@@ -626,7 +619,6 @@ function renderSettings() {
 function renderAll() {
   renderCounts();
   renderCategories();
-  renderTargetListSelect();
   renderBrowser();
   renderFavorites();
   renderLists();
@@ -726,11 +718,6 @@ els.settingsPanels.addEventListener("click", (event) => {
   });
 });
 
-els.targetList.addEventListener("change", () => {
-  activeListId = els.targetList.value;
-  renderLists();
-});
-
 document.addEventListener("click", async (event) => {
   const card = event.target.closest("[data-item-id]");
   const action = event.target.closest("button, input, select, textarea, a");
@@ -791,6 +778,7 @@ document.addEventListener("click", async (event) => {
 
   const addToList = event.target.closest("[data-add-to-list]");
   if (addToList) {
+    ensureActiveList();
     const list = state.lists.find((entry) => entry.id === activeListId);
     if (list && !list.itemIds.includes(addToList.dataset.addToList)) list.itemIds.push(addToList.dataset.addToList);
     saveState();
