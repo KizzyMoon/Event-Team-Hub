@@ -310,15 +310,18 @@ nav span {
 
 .delete-corner {
   position: absolute;
+  display: grid;
+  place-items: center;
   right: 10px;
   bottom: 8px;
   width: 22px;
+  height: 22px;
   min-height: 22px;
   padding: 0;
   border-color: rgba(255, 92, 103, 0.7);
   border-radius: 999px;
   color: #ffb9bf;
-  line-height: 1;
+  line-height: 0;
 }
 
 .thumb {
