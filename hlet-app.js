@@ -275,10 +275,12 @@ function customTagsFor(kind) {
 
 function addCustomTag(kind, tag) {
   const cleaned = String(tag || "").trim();
-  if (!cleaned) return;
+  if (!cleaned) return false;
   const tags = customTagsFor(kind);
-  if (!tags.some((entry) => entry.toLowerCase() === cleaned.toLowerCase())) tags.push(cleaned);
+  if (tags.some((entry) => entry.toLowerCase() === cleaned.toLowerCase())) return false;
+  tags.push(cleaned);
   tags.sort(sortText);
+  return true;
 }
 
 function removeTagFromItem(item, tag) {
@@ -292,6 +294,17 @@ function removeTagFromItem(item, tag) {
 function deleteTagEverywhere(kind, tag) {
   state.items.filter((item) => item.kind === kind).forEach((item) => removeTagFromItem(item, tag));
   state.customTags[kind] = customTagsFor(kind).filter((entry) => entry.toLowerCase() !== String(tag).toLowerCase());
+}
+
+function submitSettingsTag(form) {
+  const kind = form.dataset.addSettingsTag;
+  const input = form.elements.tag;
+  if (!kind || !input) return;
+  const added = addCustomTag(kind, input.value);
+  if (!added) return;
+  saveState();
+  input.value = "";
+  renderAll();
 }
 
 function getWeaponCategory(item) {
@@ -719,7 +732,7 @@ function renderSettings() {
         <h3>${label}</h3>
         <form class="settings-add-tag" data-add-settings-tag="${kind}">
           <input name="tag" placeholder="Add tag..." />
-          <button type="submit">Add tag</button>
+          <button data-add-settings-tag-button type="button">Add tag</button>
         </form>
         <div class="settings-tags">
           ${activeTags.length ? activeTags.map(([tag, count]) => `
@@ -808,6 +821,13 @@ els.favoriteMenu.addEventListener("click", (event) => {
 });
 
 els.settingsPanels.addEventListener("click", (event) => {
+  const addButton = event.target.closest("[data-add-settings-tag-button]");
+  if (addButton) {
+    const form = addButton.closest("[data-add-settings-tag]");
+    if (form) submitSettingsTag(form);
+    return;
+  }
+
   const deleteButton = event.target.closest("[data-delete-settings-tag]");
   if (deleteButton) {
     const kind = deleteButton.dataset.tagKind;
@@ -824,12 +844,7 @@ els.settingsPanels.addEventListener("submit", (event) => {
   const form = event.target.closest("[data-add-settings-tag]");
   if (!form) return;
   event.preventDefault();
-  const kind = form.dataset.addSettingsTag;
-  const tag = new FormData(form).get("tag");
-  addCustomTag(kind, tag);
-  saveState();
-  form.reset();
-  renderAll();
+  submitSettingsTag(form);
 });
 
 [els.search, els.listSearch, els.favoriteSearch].forEach((input) => {
