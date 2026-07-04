@@ -262,18 +262,21 @@ nav span {
 
 .grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  align-items: stretch;
   gap: 12px;
 }
 
 .compact {
-  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
 }
 
 .card {
   position: relative;
   min-width: 0;
   display: grid;
+  grid-template-rows: 124px 42px 30px 56px 30px;
+  height: 310px;
   gap: 9px;
   border: 1px solid var(--line);
   border-radius: 8px;
@@ -299,6 +302,8 @@ nav span {
 
 .weapon-card {
   align-content: start;
+  grid-template-rows: 42px 30px 56px 30px;
+  height: 178px;
 }
 
 .weapon-card .thumb {
@@ -336,7 +341,7 @@ nav span {
   align-items: center;
 }
 
-.card-bottom-actions [data-edit-tags] {
+.card-bottom-actions [data-edit-item] {
   min-height: 24px;
   height: 24px;
   padding: 3px 8px;
@@ -362,10 +367,11 @@ nav span {
 
 .thumb {
   width: 100%;
-  aspect-ratio: 16 / 9;
+  height: 124px;
   border-radius: 6px;
   object-fit: cover;
   background: #0b0c12;
+  overflow: hidden;
 }
 
 .no-thumb {
@@ -379,16 +385,23 @@ nav span {
   margin: 0;
   padding-right: 28px;
   font-size: 1rem;
+  line-height: 1.25;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
 }
 
 .card-code {
-  min-height: 28px;
+  height: 30px;
   border-radius: 5px;
   background: var(--panel-2);
   padding: 6px 8px;
   font-family: Consolas, monospace;
   font-size: 0.78rem;
-  overflow-wrap: anywhere;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .tag-row,
@@ -396,6 +409,12 @@ nav span {
   display: flex;
   gap: 6px;
   flex-wrap: wrap;
+  min-width: 0;
+}
+
+.tag-row {
+  align-content: start;
+  overflow: hidden;
 }
 
 .card-actions {
@@ -404,12 +423,16 @@ nav span {
 }
 
 .tag {
+  max-width: 100%;
   border-radius: 999px;
   background: #202842;
   color: #b9c8ef;
   padding: 3px 8px;
   font-size: 0.72rem;
   font-weight: 800;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .card-actions button {
