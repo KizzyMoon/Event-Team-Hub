@@ -353,28 +353,23 @@ function categoriesFor(type) {
 }
 
 function addItemCategoriesFor(kind) {
+  const categoryNames = allTagCountsFor(kind).map(([category]) => category);
+  if (!categoryNames.length) return ["Unsorted"];
+
   if (kind === "weapon") {
-    return [...new Set([...WEAPON_CATEGORIES, ...customTagsFor("weapon")])].sort((a, b) => sortText(displayWeaponCategory(a), displayWeaponCategory(b)));
-  }
-  if (kind === "vehicle") {
-    return [...new Set([...VEHICLE_CATEGORIES, ...customTagsFor("vehicle")])].sort(sortText);
+    return categoryNames.sort((a, b) => sortText(displayWeaponCategory(a), displayWeaponCategory(b)));
   }
 
-  const categories = categoriesFor(kind);
-  const categoryNames = categories.length ? categories.map(([category]) => category) : ["Unsorted"];
-  return [...new Set([...categoryNames, ...customTagsFor(kind)])].sort(sortText);
+  return categoryNames.sort(sortText);
 }
 
 function renderCustomCategorySelect(selectedTag = "") {
   const kind = els.itemForm.elements.kind.value;
-  const categories = [...addItemCategoriesFor(kind)];
-  if (selectedTag && !categories.includes(selectedTag)) categories.unshift(selectedTag);
+  const categories = addItemCategoriesFor(kind);
   els.customCategory.innerHTML = categories.map((category) => {
     return `<option value="${escapeHtml(category)}">${escapeHtml(category)}</option>`;
   }).join("");
-  if (selectedTag && categories.includes(selectedTag)) {
-    els.customCategory.value = selectedTag;
-  }
+  els.customCategory.value = selectedTag && categories.includes(selectedTag) ? selectedTag : categories[0] || "";
 }
 
 function resetImageUploadLabel(text = "Drop an image here, paste one, or choose from your computer") {
