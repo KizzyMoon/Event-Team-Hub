@@ -63,7 +63,6 @@ const els = {
   lists: document.querySelector("[data-lists]"),
   settings: document.querySelector("[data-settings]"),
   search: document.querySelector("[data-search]"),
-  blacklistFilter: document.querySelector("[data-blacklist-filter]"),
   categories: document.querySelector("[data-categories]"),
   categoryChips: document.querySelector("[data-category-chips]"),
   title: document.querySelector("[data-title]"),
@@ -384,7 +383,6 @@ function openItemEditor(item) {
   els.itemForm.elements.kind.value = item.kind || "object";
   els.itemForm.elements.kind.disabled = false;
   els.itemForm.elements.image.value = item.image && !String(item.image).startsWith("data:") ? item.image : "";
-  els.itemForm.elements.blacklisted.checked = Boolean(item.blacklisted);
   els.itemForm.elements.notes.value = item.notes || "";
   resetImageUploadLabel(item.image ? "Current image saved. Drop, paste, or choose to replace it." : undefined);
   renderCustomCategorySelect(getUsefulCategory(item));
@@ -394,14 +392,11 @@ function openItemEditor(item) {
 function filteredItems() {
   const type = itemType();
   const search = els.search.value.trim().toLowerCase();
-  const blacklist = els.blacklistFilter.value;
   const source = activeTab === "favorites" ? favoriteItems() : state.items;
   return source.filter((item) => {
     if (activeTab !== "favorites" && item.kind !== type) return false;
     if (activeTab === "favorites" && activeCategory !== "All" && `${item.kind}s` !== activeCategory.toLowerCase()) return false;
     if (activeTab !== "favorites" && activeCategory !== "All" && getUsefulCategory(item) !== activeCategory) return false;
-    if (blacklist === "available" && item.blacklisted) return false;
-    if (blacklist === "blacklisted" && !item.blacklisted) return false;
     if (!search) return true;
     return `${item.name} ${item.code} ${(item.tags || []).join(" ")} ${item.notes || ""}`.toLowerCase().includes(search);
   });
@@ -468,20 +463,18 @@ function renderCard(item, options = {}) {
     : "";
   const thumb = renderThumb(item);
   return `
-    <article class="card ${item.blacklisted ? "blacklisted" : ""} ${item.kind === "weapon" ? "weapon-card" : ""}" data-item-id="${escapeHtml(item.id)}">
+    <article class="card ${item.kind === "weapon" ? "weapon-card" : ""}" data-item-id="${escapeHtml(item.id)}">
       <button class="favorite-button ${isFavorite(item.id) ? "active" : ""}" data-toggle-favorite="${escapeHtml(item.id)}" type="button" aria-label="${isFavorite(item.id) ? "Remove favorite" : "Add favorite"}">&#9733;</button>
       ${thumb}
       <h3>${escapeHtml(item.name)}</h3>
       <div class="card-code">${escapeHtml(item.code)}</div>
       <div class="tag-row">
-        ${item.blacklisted ? `<span class="blacklist-tag">Blacklisted</span>` : ""}
         ${visibleTags(item).map((tag) => `<span class="tag">${escapeHtml(tag)}</span>`).join("")}
       </div>
       <div class="card-actions">
         ${options.removeFromList ? `<button class="card-remove" data-remove-from-list="${escapeHtml(item.id)}" type="button">Remove</button>` : listButton}
       </div>
       <div class="card-bottom-actions">
-        <button class="blacklist-flag ${item.blacklisted ? "active" : ""}" data-toggle-blacklist="${escapeHtml(item.id)}" type="button" aria-label="${item.blacklisted ? "Remove blacklist" : "Mark blacklisted"}">⚑</button>
         ${editTagsButton}
         <button class="delete-corner" data-delete-item="${escapeHtml(item.id)}" type="button" aria-label="Delete ${escapeHtml(item.name)}">x</button>
       </div>
@@ -800,7 +793,7 @@ els.settingsPanels.addEventListener("click", (event) => {
   }
 });
 
-[els.search, els.blacklistFilter, els.listSearch, els.favoriteSearch].forEach((input) => {
+[els.search, els.listSearch, els.favoriteSearch].forEach((input) => {
   input.addEventListener("input", () => {
     renderLimit = PAGE_SIZE;
     renderAll();
@@ -826,16 +819,6 @@ document.addEventListener("click", async (event) => {
     await navigator.clipboard.writeText(item.code);
     card.classList.add("copied");
     setTimeout(() => card.classList.remove("copied"), 700);
-    return;
-  }
-
-  const blacklist = event.target.closest("[data-toggle-blacklist]");
-  if (blacklist) {
-    const item = state.items.find((entry) => entry.id === blacklist.dataset.toggleBlacklist);
-    if (item) item.blacklisted = !item.blacklisted;
-    if (item) saveItemOverride(item);
-    saveState();
-    renderAll();
     return;
   }
 
@@ -968,7 +951,6 @@ els.itemForm.addEventListener("submit", async (event) => {
     existingItem.code = form.code;
     existingItem.image = pendingImageData || form.image || existingItem.image || "";
     existingItem.tags = form.tags ? [form.tags] : [];
-    existingItem.blacklisted = Boolean(form.blacklisted);
     existingItem.notes = form.notes || "";
     saveItemOverride(existingItem);
   } else {
@@ -980,7 +962,7 @@ els.itemForm.addEventListener("submit", async (event) => {
       dlc: "Custom",
       image: pendingImageData || form.image || "",
       tags: form.tags ? [form.tags] : [],
-      blacklisted: Boolean(form.blacklisted),
+      blacklisted: false,
       notes: form.notes || ""
     };
     state.items.unshift(item);

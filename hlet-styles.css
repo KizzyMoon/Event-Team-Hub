@@ -288,10 +288,6 @@ nav span {
   box-shadow: 0 0 0 1px rgba(196, 123, 255, 0.45);
 }
 
-.card.blacklisted {
-  border-color: rgba(255, 92, 103, 0.72);
-}
-
 .load-more-card {
   min-height: 134px;
   border-color: var(--accent);
@@ -335,7 +331,7 @@ nav span {
   right: 10px;
   bottom: 8px;
   display: grid;
-  grid-template-columns: 22px minmax(0, 1fr) 22px;
+  grid-template-columns: minmax(0, 1fr) 22px;
   gap: 8px;
   align-items: center;
 }
@@ -347,8 +343,7 @@ nav span {
   font-size: 0.72rem;
 }
 
-.delete-corner,
-.blacklist-flag {
+.delete-corner {
   display: grid;
   place-items: center;
   width: 22px;
@@ -362,21 +357,6 @@ nav span {
 
 .delete-corner {
   border-color: rgba(255, 92, 103, 0.7);
-  color: #ffb9bf;
-}
-
-.blacklist-flag {
-  border-color: #3a4256;
-  background: #151924;
-  color: #7b8498;
-}
-
-.blacklist-flag.active {
-  border-color: var(--red);
-  color: var(--red);
-}
-
-.blacklist-flag:hover {
   color: #ffb9bf;
 }
 
@@ -423,19 +403,13 @@ nav span {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
-.tag,
-.blacklist-tag {
+.tag {
   border-radius: 999px;
   background: #202842;
   color: #b9c8ef;
   padding: 3px 8px;
   font-size: 0.72rem;
   font-weight: 800;
-}
-
-.blacklist-tag {
-  background: rgba(255, 92, 103, 0.16);
-  color: #ffb9bf;
 }
 
 .card-actions button {
