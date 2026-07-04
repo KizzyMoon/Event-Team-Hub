@@ -24,6 +24,7 @@ const els = {
   toolbar: document.querySelector("[data-toolbar]"),
   browser: document.querySelector("[data-browser]"),
   lists: document.querySelector("[data-lists]"),
+  settings: document.querySelector("[data-settings]"),
   search: document.querySelector("[data-search]"),
   blacklistFilter: document.querySelector("[data-blacklist-filter]"),
   categories: document.querySelector("[data-categories]"),
@@ -47,7 +48,8 @@ const els = {
   listTitle: document.querySelector("[data-list-title]"),
   listSubtitle: document.querySelector("[data-list-subtitle]"),
   listSearch: document.querySelector("[data-list-search]"),
-  listItems: document.querySelector("[data-list-items]")
+  listItems: document.querySelector("[data-list-items]"),
+  settingsPanels: document.querySelector("[data-settings-panels]")
 };
 
 function loadState() {
@@ -58,6 +60,7 @@ function loadState() {
     parsed.deletedItemIds = parsed.deletedItemIds || [];
     parsed.customItems = parsed.customItems || (parsed.items || []).filter((item) => String(item.id || "").startsWith("custom:"));
     parsed.itemOverrides = parsed.itemOverrides || {};
+    parsed.hiddenTags = parsed.hiddenTags || { object: [], vehicle: [], weapon: [] };
     return mergeSeedItems(parsed);
   }
 
@@ -65,6 +68,7 @@ function loadState() {
     items: seed.items || [],
     customItems: [],
     itemOverrides: {},
+    hiddenTags: { object: [], vehicle: [], weapon: [] },
     favoritesByUser: {},
     deletedItemIds: [],
     lists: [
@@ -103,6 +107,7 @@ function saveState() {
   const savedState = {
     customItems: state.customItems || [],
     itemOverrides: state.itemOverrides || {},
+    hiddenTags: state.hiddenTags || { object: [], vehicle: [], weapon: [] },
     favoritesByUser: state.favoritesByUser || {},
     deletedItemIds: state.deletedItemIds || [],
     lists: state.lists || []
@@ -188,13 +193,23 @@ function getUsefulCategory(item) {
 
   const tags = item.tags || [];
   const preferred = tags.find((tag) => {
-    return !isHiddenTag(tag);
+    return !isHiddenTag(tag) && !isGloballyHiddenTag(item.kind, tag);
   });
   return preferred || item.dlc || "Unsorted";
 }
 
 function isHiddenTag(tag) {
   return /^(roleplay|size|gray|white|black|silver|red|blue|green|yellow|orange|brown|transparent|scriptable|external|lod|created|release|version|online|gtav|base game)/i.test(tag);
+}
+
+function hiddenTagsFor(kind) {
+  state.hiddenTags = state.hiddenTags || { object: [], vehicle: [], weapon: [] };
+  state.hiddenTags[kind] = state.hiddenTags[kind] || [];
+  return state.hiddenTags[kind];
+}
+
+function isGloballyHiddenTag(kind, tag) {
+  return hiddenTagsFor(kind).some((hidden) => hidden.toLowerCase() === String(tag).toLowerCase());
 }
 
 function getWeaponCategory(item) {
@@ -223,13 +238,16 @@ function categoriesFor(type) {
   if (type === "weapon") {
     return WEAPON_CATEGORIES
       .map((category) => [category, state.items.filter((item) => item.kind === "weapon" && getWeaponCategory(item) === category).length])
+      .filter(([category]) => !isGloballyHiddenTag("weapon", category))
       .filter(([, count]) => count > 0);
   }
 
   const counts = new Map();
   state.items.filter((item) => item.kind === type).forEach((item) => {
     const category = getUsefulCategory(item);
-    counts.set(category, (counts.get(category) || 0) + 1);
+    if (!isGloballyHiddenTag(type, category)) {
+      counts.set(category, (counts.get(category) || 0) + 1);
+    }
   });
   return [...counts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 28);
 }
@@ -346,10 +364,11 @@ function renderCard(item, options = {}) {
 
 function visibleTags(item) {
   if (item.kind === "weapon") {
-    return [getWeaponCategory(item)];
+    const category = getWeaponCategory(item);
+    return isGloballyHiddenTag("weapon", category) ? [] : [category];
   }
 
-  return (item.tags || []).filter((tag) => !isHiddenTag(tag)).slice(0, 3);
+  return (item.tags || []).filter((tag) => !isHiddenTag(tag) && !isGloballyHiddenTag(item.kind, tag)).slice(0, 3);
 }
 
 function renderThumb(item) {
@@ -480,12 +499,66 @@ function renderLists() {
   els.listItems.innerHTML = items.map((item) => renderCard(item, { removeFromList: true })).join("");
 }
 
+function allTagCountsFor(kind) {
+  const counts = new Map();
+  if (kind === "weapon") {
+    WEAPON_CATEGORIES.forEach((category) => {
+      counts.set(category, state.items.filter((item) => item.kind === "weapon" && getWeaponCategory(item) === category).length);
+    });
+    return [...counts.entries()].filter(([, count]) => count > 0);
+  }
+
+  state.items.filter((item) => item.kind === kind).forEach((item) => {
+    (item.tags || []).forEach((tag) => {
+      if (!isHiddenTag(tag)) counts.set(tag, (counts.get(tag) || 0) + 1);
+    });
+  });
+  return [...counts.entries()].sort((a, b) => b[1] - a[1]);
+}
+
+function renderSettings() {
+  const sections = [
+    ["object", "Objects"],
+    ["vehicle", "Vehicles"],
+    ["weapon", "Weapons"]
+  ];
+
+  els.settingsPanels.innerHTML = sections.map(([kind, label]) => {
+    const hidden = hiddenTagsFor(kind);
+    const activeTags = allTagCountsFor(kind).filter(([tag]) => !isGloballyHiddenTag(kind, tag));
+    return `
+      <section class="settings-panel">
+        <h3>${label}</h3>
+        <div class="settings-tags">
+          ${activeTags.length ? activeTags.map(([tag, count]) => `
+            <span class="settings-tag">
+              ${escapeHtml(kind === "weapon" ? displayWeaponCategory(tag) : tag)}
+              <small>${count.toLocaleString()}</small>
+              <button data-hide-global-tag="${escapeHtml(tag)}" data-tag-kind="${kind}" type="button" aria-label="Remove ${escapeHtml(tag)}">x</button>
+            </span>
+          `).join("") : `<span class="muted">No active tags</span>`}
+        </div>
+        <h4>Hidden</h4>
+        <div class="settings-tags">
+          ${hidden.length ? hidden.map((tag) => `
+            <span class="settings-tag muted-tag">
+              ${escapeHtml(kind === "weapon" ? displayWeaponCategory(tag) : tag)}
+              <button data-restore-global-tag="${escapeHtml(tag)}" data-tag-kind="${kind}" type="button" aria-label="Restore ${escapeHtml(tag)}">+</button>
+            </span>
+          `).join("") : `<span class="muted">None</span>`}
+        </div>
+      </section>
+    `;
+  }).join("");
+}
+
 function renderAll() {
   renderCounts();
   renderCategories();
   renderTargetListSelect();
   renderBrowser();
   renderLists();
+  renderSettings();
 }
 
 function setTab(tab) {
@@ -500,9 +573,11 @@ function setTab(tab) {
     favorites: "Search favorites..."
   }[tab] || "Search names, spawn codes, categories...";
   const listMode = tab === "lists";
-  els.toolbar.classList.toggle("is-hidden", listMode);
-  els.browser.classList.toggle("is-hidden", listMode);
+  const settingsMode = tab === "settings";
+  els.toolbar.classList.toggle("is-hidden", listMode || settingsMode);
+  els.browser.classList.toggle("is-hidden", listMode || settingsMode);
   els.lists.classList.toggle("is-hidden", !listMode);
+  els.settings.classList.toggle("is-hidden", !settingsMode);
   renderAll();
 }
 
@@ -538,6 +613,29 @@ els.categoryChips.addEventListener("click", (event) => {
   activeCategory = chip.dataset.categoryChip;
   renderLimit = PAGE_SIZE;
   renderAll();
+});
+
+els.settingsPanels.addEventListener("click", (event) => {
+  const hideButton = event.target.closest("[data-hide-global-tag]");
+  if (hideButton) {
+    const kind = hideButton.dataset.tagKind;
+    const tag = hideButton.dataset.hideGlobalTag;
+    const hidden = hiddenTagsFor(kind);
+    if (!hidden.some((entry) => entry.toLowerCase() === tag.toLowerCase())) hidden.push(tag);
+    if (activeCategory === tag) activeCategory = "All";
+    saveState();
+    renderAll();
+    return;
+  }
+
+  const restoreButton = event.target.closest("[data-restore-global-tag]");
+  if (restoreButton) {
+    const kind = restoreButton.dataset.tagKind;
+    const tag = restoreButton.dataset.restoreGlobalTag;
+    state.hiddenTags[kind] = hiddenTagsFor(kind).filter((entry) => entry.toLowerCase() !== tag.toLowerCase());
+    saveState();
+    renderAll();
+  }
 });
 
 [els.search, els.blacklistFilter, els.listSearch].forEach((input) => {
