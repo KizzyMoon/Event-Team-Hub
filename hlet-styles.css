@@ -245,7 +245,7 @@ nav span {
   border: 1px solid var(--line);
   border-radius: 8px;
   background: var(--panel);
-  padding: 12px;
+  padding: 12px 12px 28px;
   cursor: pointer;
   transition: border-color 0.16s ease, box-shadow 0.16s ease;
 }
@@ -284,6 +284,19 @@ nav span {
 .favorite-button:hover,
 .favorite-button.active {
   color: #ffd34d;
+}
+
+.delete-corner {
+  position: absolute;
+  right: 10px;
+  bottom: 8px;
+  width: 22px;
+  min-height: 22px;
+  padding: 0;
+  border-color: rgba(255, 92, 103, 0.7);
+  border-radius: 999px;
+  color: #ffb9bf;
+  line-height: 1;
 }
 
 .thumb {

@@ -292,8 +292,8 @@ function renderCard(item, options = {}) {
         ${options.removeFromList ? `<button class="card-remove" data-remove-from-list="${escapeHtml(item.id)}" type="button">Remove</button>` : listButton}
         ${editTagsButton}
         <button data-toggle-blacklist="${escapeHtml(item.id)}" type="button">${item.blacklisted ? "Unblacklist" : "Blacklist"}</button>
-        <button class="card-remove" data-delete-item="${escapeHtml(item.id)}" type="button">Delete</button>
       </div>
+      <button class="delete-corner" data-delete-item="${escapeHtml(item.id)}" type="button" aria-label="Delete ${escapeHtml(item.name)}">x</button>
     </article>
   `;
 }
