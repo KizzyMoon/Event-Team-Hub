@@ -546,11 +546,10 @@ function renderCard(item, options = {}) {
       <div class="tag-row">
         ${visibleTags(item).map((tag) => `<span class="tag">${escapeHtml(tag)}</span>`).join("")}
       </div>
-      <div class="card-actions">
-        ${options.removeFromList ? `<button class="card-remove" data-remove-from-list="${escapeHtml(item.id)}" type="button">Remove</button>` : listButton}
-      </div>
+      ${options.removeFromList ? `<div class="card-actions"><button class="card-remove" data-remove-from-list="${escapeHtml(item.id)}" type="button">Remove</button></div>` : ""}
       <div class="card-bottom-actions">
         ${editTagsButton}
+        ${options.removeFromList ? "" : listButton}
         <button class="delete-corner" data-delete-item="${escapeHtml(item.id)}" type="button" aria-label="Delete ${escapeHtml(item.name)}">x</button>
       </div>
     </article>

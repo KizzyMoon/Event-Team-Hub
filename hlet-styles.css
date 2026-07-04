@@ -336,12 +336,13 @@ nav span {
   right: 10px;
   bottom: 8px;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 22px;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 22px;
   gap: 8px;
   align-items: center;
 }
 
-.card-bottom-actions [data-edit-item] {
+.card-bottom-actions [data-edit-item],
+.card-bottom-actions [data-add-to-list] {
   min-height: 24px;
   height: 24px;
   padding: 3px 8px;
