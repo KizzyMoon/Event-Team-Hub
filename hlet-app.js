@@ -33,6 +33,7 @@ const els = {
   grid: document.querySelector("[data-grid]"),
   itemDialog: document.querySelector("[data-item-dialog]"),
   itemForm: document.querySelector("[data-item-form]"),
+  customCategory: document.querySelector("[data-custom-category]"),
   tagDialog: document.querySelector("[data-tag-dialog]"),
   tagForm: document.querySelector("[data-tag-form]"),
   tagTitle: document.querySelector("[data-tag-title]"),
@@ -230,6 +231,23 @@ function categoriesFor(type) {
     counts.set(category, (counts.get(category) || 0) + 1);
   });
   return [...counts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 28);
+}
+
+function addItemCategoriesFor(kind) {
+  if (kind === "weapon") {
+    return WEAPON_CATEGORIES;
+  }
+
+  const categories = categoriesFor(kind);
+  return categories.length ? categories.map(([category]) => category) : ["Unsorted"];
+}
+
+function renderCustomCategorySelect() {
+  const kind = els.itemForm.elements.kind.value;
+  const categories = addItemCategoriesFor(kind);
+  els.customCategory.innerHTML = categories.map((category) => {
+    return `<option value="${escapeHtml(category)}">${escapeHtml(category)}</option>`;
+  }).join("");
 }
 
 function filteredItems() {
@@ -573,8 +591,12 @@ document.addEventListener("click", async (event) => {
   }
 });
 
-document.querySelector("[data-open-add]").addEventListener("click", () => els.itemDialog.showModal());
+document.querySelector("[data-open-add]").addEventListener("click", () => {
+  renderCustomCategorySelect();
+  els.itemDialog.showModal();
+});
 document.querySelector("[data-close-dialog]").addEventListener("click", () => els.itemDialog.close());
+els.itemForm.elements.kind.addEventListener("change", renderCustomCategorySelect);
 
 els.tagCancel.addEventListener("click", () => els.tagDialog.close());
 els.tagAdd.addEventListener("click", addEditingTag);
@@ -613,7 +635,7 @@ els.itemForm.addEventListener("submit", (event) => {
     code: form.code,
     dlc: "Custom",
     image: form.image,
-    tags: String(form.tags || "").split(",").map((tag) => tag.trim()).filter(Boolean),
+    tags: form.tags ? [form.tags] : [],
     blacklisted: Boolean(form.blacklisted),
     notes: form.notes || ""
   };
@@ -622,6 +644,7 @@ els.itemForm.addEventListener("submit", (event) => {
   state.customItems.unshift(item);
   saveState();
   els.itemForm.reset();
+  renderCustomCategorySelect();
   els.itemDialog.close();
   setTab({ object: "objects", vehicle: "vehicles", weapon: "weapons" }[form.kind]);
 });
