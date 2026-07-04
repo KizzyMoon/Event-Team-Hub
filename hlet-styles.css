@@ -336,6 +336,33 @@ nav span {
   line-height: 0;
 }
 
+.blacklist-flag {
+  position: absolute;
+  display: grid;
+  place-items: center;
+  left: 10px;
+  bottom: 8px;
+  width: 22px;
+  height: 22px;
+  min-height: 22px;
+  padding: 0;
+  border-color: #3a4256;
+  border-radius: 999px;
+  background: #151924;
+  color: #7b8498;
+  font-size: 0.86rem;
+  line-height: 1;
+}
+
+.blacklist-flag.active {
+  border-color: var(--red);
+  color: var(--red);
+}
+
+.blacklist-flag:hover {
+  color: #ffb9bf;
+}
+
 .thumb {
   width: 100%;
   aspect-ratio: 16 / 9;
