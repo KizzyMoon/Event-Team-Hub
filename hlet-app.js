@@ -61,6 +61,7 @@ function loadState() {
     parsed.customItems = parsed.customItems || (parsed.items || []).filter((item) => String(item.id || "").startsWith("custom:"));
     parsed.itemOverrides = parsed.itemOverrides || {};
     parsed.hiddenTags = parsed.hiddenTags || { object: [], vehicle: [], weapon: [] };
+    parsed.hiddenTags.vehicle = [...new Set((parsed.hiddenTags.vehicle || []).map((tag) => normalizeTag("vehicle", tag)))];
     return mergeSeedItems(parsed);
   }
 
@@ -192,14 +193,23 @@ function getUsefulCategory(item) {
   }
 
   const tags = item.tags || [];
+  if (item.kind === "vehicle" && tags.some((tag) => normalizeTag(item.kind, tag) === "Offroad")) {
+    return "Offroad";
+  }
+
   const preferred = tags.find((tag) => {
-    return !isHiddenTag(tag) && !isGloballyHiddenTag(item.kind, tag);
+    return !isHiddenTag(tag) && !isGloballyHiddenTag(item.kind, normalizeTag(item.kind, tag));
   });
-  return preferred || item.dlc || "Unsorted";
+  return preferred ? normalizeTag(item.kind, preferred) : item.dlc || "Unsorted";
 }
 
 function isHiddenTag(tag) {
   return /^(roleplay|size|gray|white|black|silver|red|blue|green|yellow|orange|brown|transparent|scriptable|external|lod|created|release|version|online|gtav|base game)/i.test(tag);
+}
+
+function normalizeTag(kind, tag) {
+  if (kind === "vehicle" && /^offroad wheels$/i.test(String(tag))) return "Offroad";
+  return tag;
 }
 
 function hiddenTagsFor(kind) {
@@ -368,7 +378,11 @@ function visibleTags(item) {
     return isGloballyHiddenTag("weapon", category) ? [] : [category];
   }
 
-  return (item.tags || []).filter((tag) => !isHiddenTag(tag) && !isGloballyHiddenTag(item.kind, tag)).slice(0, 3);
+  return (item.tags || [])
+    .map((tag) => normalizeTag(item.kind, tag))
+    .filter((tag, index, tags) => tags.indexOf(tag) === index)
+    .filter((tag) => !isHiddenTag(tag) && !isGloballyHiddenTag(item.kind, tag))
+    .slice(0, 3);
 }
 
 function renderThumb(item) {
@@ -510,7 +524,8 @@ function allTagCountsFor(kind) {
 
   state.items.filter((item) => item.kind === kind).forEach((item) => {
     (item.tags || []).forEach((tag) => {
-      if (!isHiddenTag(tag)) counts.set(tag, (counts.get(tag) || 0) + 1);
+      const normalizedTag = normalizeTag(kind, tag);
+      if (!isHiddenTag(normalizedTag)) counts.set(normalizedTag, (counts.get(normalizedTag) || 0) + 1);
     });
   });
   return [...counts.entries()].sort((a, b) => b[1] - a[1]);
