@@ -41,8 +41,6 @@ const els = {
   tagAddRow: document.querySelector("[data-tag-add-row]"),
   tagAdd: document.querySelector("[data-tag-add]"),
   tagCancel: document.querySelector("[data-tag-cancel]"),
-  weaponTagRow: document.querySelector("[data-weapon-tag-row]"),
-  weaponTag: document.querySelector("[data-weapon-tag]"),
   listMenu: document.querySelector("[data-list-menu]"),
   listTitle: document.querySelector("[data-list-title]"),
   listSubtitle: document.querySelector("[data-list-subtitle]"),
@@ -330,15 +328,9 @@ function openTagEditor(item) {
   if (item.kind === "weapon") {
     els.tagAddRow.classList.add("is-hidden");
     els.tagAdd.classList.add("is-hidden");
-    els.weaponTagRow.classList.remove("is-hidden");
-    els.weaponTag.innerHTML = WEAPON_CATEGORIES.map((category) => {
-      return `<option value="${escapeHtml(category)}">${escapeHtml(category)}</option>`;
-    }).join("");
-    els.weaponTag.value = editingTags[0] || "OTHER";
   } else {
     els.tagAddRow.classList.remove("is-hidden");
     els.tagAdd.classList.remove("is-hidden");
-    els.weaponTagRow.classList.add("is-hidden");
     els.tagInput.value = "";
   }
 
@@ -347,6 +339,15 @@ function openTagEditor(item) {
 }
 
 function renderTagEditor() {
+  const item = state.items.find((entry) => entry.id === editingTagItemId);
+  if (item?.kind === "weapon") {
+    const selected = editingTags[0] || "OTHER";
+    els.tagEditor.innerHTML = WEAPON_CATEGORIES.map((category) => {
+      return `<button class="tag-choice ${category === selected ? "active" : ""}" data-pick-weapon-tag="${escapeHtml(category)}" type="button">${escapeHtml(category)}</button>`;
+    }).join("");
+    return;
+  }
+
   if (!editingTags.length) {
     els.tagEditor.innerHTML = `<span class="muted">No tags yet</span>`;
     return;
@@ -373,7 +374,7 @@ function addEditingTag() {
 function saveEditedTags() {
   const item = state.items.find((entry) => entry.id === editingTagItemId);
   if (!item) return;
-  item.tags = item.kind === "weapon" ? [els.weaponTag.value] : [...editingTags];
+  item.tags = item.kind === "weapon" ? [editingTags[0] || "OTHER"] : [...editingTags];
   saveItemOverride(item);
   saveState();
   renderAll();
@@ -583,6 +584,13 @@ els.tagInput.addEventListener("keydown", (event) => {
   }
 });
 els.tagEditor.addEventListener("click", (event) => {
+  const weaponChoice = event.target.closest("[data-pick-weapon-tag]");
+  if (weaponChoice) {
+    editingTags = [weaponChoice.dataset.pickWeaponTag];
+    renderTagEditor();
+    return;
+  }
+
   const removeButton = event.target.closest("[data-remove-tag]");
   if (!removeButton) return;
   editingTags = editingTags.filter((tag) => tag !== removeButton.dataset.removeTag);

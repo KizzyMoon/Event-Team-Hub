@@ -447,6 +447,18 @@ dialog::backdrop {
   line-height: 1;
 }
 
+.tag-choice {
+  min-height: 30px;
+  padding: 6px 10px;
+  border-radius: 999px;
+}
+
+.tag-choice.active {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: #12091e;
+}
+
 .muted {
   color: var(--muted);
 }
