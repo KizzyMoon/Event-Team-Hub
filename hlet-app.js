@@ -172,6 +172,14 @@ function itemType(tab = activeTab) {
   return { objects: "object", vehicles: "vehicle", weapons: "weapon" }[tab];
 }
 
+function sortText(a, b) {
+  return String(a || "").localeCompare(String(b || ""), undefined, { numeric: true, sensitivity: "base" });
+}
+
+function sortItemsByName(items) {
+  return [...items].sort((a, b) => sortText(a.name, b.name) || sortText(a.code, b.code));
+}
+
 function currentUser() {
   return JSON.parse(sessionStorage.getItem(SESSION_KEY) || "null");
 }
@@ -291,7 +299,8 @@ function categoriesFor(type) {
     return WEAPON_CATEGORIES
       .map((category) => [category, state.items.filter((item) => item.kind === "weapon" && getWeaponCategory(item) === category).length])
       .filter(([category]) => !isGloballyHiddenTag("weapon", category))
-      .filter(([, count]) => count > 0);
+      .filter(([, count]) => count > 0)
+      .sort(([a], [b]) => sortText(displayWeaponCategory(a), displayWeaponCategory(b)));
   }
 
   const counts = new Map();
@@ -301,15 +310,15 @@ function categoriesFor(type) {
       counts.set(category, (counts.get(category) || 0) + 1);
     }
   });
-  return [...counts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 28);
+  return [...counts.entries()].sort(([a], [b]) => sortText(a, b)).slice(0, 28);
 }
 
 function addItemCategoriesFor(kind) {
   if (kind === "weapon") {
-    return WEAPON_CATEGORIES;
+    return [...WEAPON_CATEGORIES].sort((a, b) => sortText(displayWeaponCategory(a), displayWeaponCategory(b)));
   }
   if (kind === "vehicle") {
-    return VEHICLE_CATEGORIES;
+    return [...VEHICLE_CATEGORIES].sort(sortText);
   }
 
   const categories = categoriesFor(kind);
@@ -393,13 +402,13 @@ function filteredItems() {
   const type = itemType();
   const search = els.search.value.trim().toLowerCase();
   const source = activeTab === "favorites" ? favoriteItems() : state.items;
-  return source.filter((item) => {
+  return sortItemsByName(source.filter((item) => {
     if (activeTab !== "favorites" && item.kind !== type) return false;
     if (activeTab === "favorites" && activeCategory !== "All" && `${item.kind}s` !== activeCategory.toLowerCase()) return false;
     if (activeTab !== "favorites" && activeCategory !== "All" && getUsefulCategory(item) !== activeCategory) return false;
     if (!search) return true;
     return `${item.name} ${item.code} ${(item.tags || []).join(" ")} ${item.notes || ""}`.toLowerCase().includes(search);
-  });
+  }));
 }
 
 function favoriteItems() {
@@ -595,7 +604,7 @@ function ensureActiveList() {
 
 function renderLists() {
   ensureActiveList();
-  els.listMenu.innerHTML = state.lists.map((list) => {
+  els.listMenu.innerHTML = [...state.lists].sort((a, b) => sortText(a.name, b.name)).map((list) => {
     return `<button class="list-row ${list.id === activeListId ? "active" : ""}" data-select-list="${list.id}" type="button"><span>${escapeHtml(list.name)}</span><span>${list.itemIds.length}</span></button>`;
   }).join("");
 
@@ -608,10 +617,10 @@ function renderLists() {
   }
 
   const search = els.listSearch.value.trim().toLowerCase();
-  const items = list.itemIds
+  const items = sortItemsByName(list.itemIds
     .map((id) => state.items.find((item) => item.id === id))
     .filter(Boolean)
-    .filter((item) => !search || `${item.name} ${item.code} ${(item.tags || []).join(" ")}`.toLowerCase().includes(search));
+    .filter((item) => !search || `${item.name} ${item.code} ${(item.tags || []).join(" ")}`.toLowerCase().includes(search)));
 
   els.listTitle.textContent = list.name;
   els.listSubtitle.textContent = `${list.itemIds.length} items - created by ${list.createdBy || "Events Team"}`;
@@ -638,10 +647,11 @@ function renderFavorites() {
   const items = favorites
     .filter((item) => item.kind === selectedKind)
     .filter((item) => !search || `${item.name} ${item.code} ${(item.tags || []).join(" ")} ${visibleTags(item).join(" ")}`.toLowerCase().includes(search));
+  const sortedItems = sortItemsByName(items);
 
   els.favoriteTitle.textContent = activeCategory;
-  els.favoriteResults.textContent = `${items.length.toLocaleString()} items`;
-  els.favoriteItems.innerHTML = items.map((item) => renderCard(item)).join("");
+  els.favoriteResults.textContent = `${sortedItems.length.toLocaleString()} items`;
+  els.favoriteItems.innerHTML = sortedItems.map((item) => renderCard(item)).join("");
 }
 
 function allTagCountsFor(kind) {
@@ -650,7 +660,7 @@ function allTagCountsFor(kind) {
     WEAPON_CATEGORIES.forEach((category) => {
       counts.set(category, state.items.filter((item) => item.kind === "weapon" && getWeaponCategory(item) === category).length);
     });
-    return [...counts.entries()].filter(([, count]) => count > 0);
+    return [...counts.entries()].filter(([, count]) => count > 0).sort(([a], [b]) => sortText(displayWeaponCategory(a), displayWeaponCategory(b)));
   }
 
   state.items.filter((item) => item.kind === kind).forEach((item) => {
@@ -659,7 +669,7 @@ function allTagCountsFor(kind) {
       if (!isHiddenTag(normalizedTag)) counts.set(normalizedTag, (counts.get(normalizedTag) || 0) + 1);
     });
   });
-  return [...counts.entries()].sort((a, b) => b[1] - a[1]);
+  return [...counts.entries()].sort(([a], [b]) => sortText(a, b));
 }
 
 function renderSettings() {
