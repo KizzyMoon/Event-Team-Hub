@@ -651,6 +651,8 @@ function renderLists() {
 }
 
 function renderFavorites() {
+  if (activeTab !== "favorites") return;
+
   const groups = [
     ["Objects", "object"],
     ["Vehicles", "vehicle"],
@@ -870,6 +872,7 @@ document.addEventListener("click", async (event) => {
   if (deleteItem) {
     const item = state.items.find((entry) => entry.id === deleteItem.dataset.deleteItem);
     if (item && confirm(`Delete ${item.name}?`)) {
+      const deletedCategory = getUsefulCategory(item);
       state.deletedItemIds = state.deletedItemIds || [];
       if (!state.deletedItemIds.includes(item.id)) state.deletedItemIds.push(item.id);
       state.items = state.items.filter((entry) => entry.id !== item.id);
@@ -881,7 +884,7 @@ document.addEventListener("click", async (event) => {
         if (favoriteIndex !== -1) ids.splice(favoriteIndex, 1);
       });
       saveState();
-      renderAll({ keepMissingCategory: true });
+      renderAll({ keepMissingCategory: activeCategory === deletedCategory });
     }
     return;
   }

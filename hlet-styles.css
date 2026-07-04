@@ -201,7 +201,7 @@ nav span {
 
 .toolbar {
   display: grid;
-  grid-template-columns: minmax(220px, 340px) minmax(0, 1fr) 160px 220px auto;
+  grid-template-columns: minmax(220px, 340px) minmax(0, 1fr) 220px auto;
   gap: 10px;
   align-items: center;
   padding: 10px 24px;
@@ -223,7 +223,7 @@ nav span {
   gap: 6px;
   flex-wrap: wrap;
   align-items: center;
-  grid-column: span 2;
+  grid-column: span 1;
 }
 
 .category-chips button {
