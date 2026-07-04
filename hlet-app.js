@@ -3,6 +3,26 @@ const STORAGE_KEY = "hlet-hub-v1";
 const SESSION_KEY = "hlet-session-v1";
 const PAGE_SIZE = 120;
 const WEAPON_CATEGORIES = ["HEAVY", "SMGS", "THROWABLES", "MELEE", "OTHER", "PISTOLS", "SHOTGUNS", "RIFLES"];
+const VEHICLE_CATEGORIES = [
+  "Muscle",
+  "Sport",
+  "SUV",
+  "Sedan",
+  "Utility",
+  "Van",
+  "Motorcycle",
+  "Commercial",
+  "Boat",
+  "Plane",
+  "Helicopter",
+  "Law Enforcement",
+  "Military",
+  "Coupe",
+  "Industrial",
+  "Service",
+  "Weapon",
+  "Offroad"
+];
 
 const seed = window.HLET_SEED_DATA || { items: [] };
 const state = loadState();
@@ -266,6 +286,9 @@ function addItemCategoriesFor(kind) {
   if (kind === "weapon") {
     return WEAPON_CATEGORIES;
   }
+  if (kind === "vehicle") {
+    return VEHICLE_CATEGORIES;
+  }
 
   const categories = categoriesFor(kind);
   return categories.length ? categories.map(([category]) => category) : ["Unsorted"];
@@ -348,7 +371,7 @@ function renderCard(item, options = {}) {
   const listButton = state.lists.length
     ? `<button data-add-to-list="${escapeHtml(item.id)}" type="button">+ List</button>`
     : "";
-  const editTagsButton = item.kind === "object" || item.kind === "weapon"
+  const editTagsButton = item.kind === "object" || item.kind === "vehicle" || item.kind === "weapon"
     ? `<button data-edit-tags="${escapeHtml(item.id)}" type="button">Edit tags</button>`
     : "";
   const thumb = renderThumb(item);
@@ -399,10 +422,10 @@ function renderThumb(item) {
 
 function openTagEditor(item) {
   editingTagItemId = item.id;
-  editingTags = item.kind === "weapon" ? [getWeaponCategory(item)] : [...(item.tags || [])];
+  editingTags = item.kind === "weapon" || item.kind === "vehicle" ? [getUsefulCategory(item)] : [...(item.tags || [])];
   els.tagTitle.textContent = `Edit tags - ${item.name}`;
 
-  if (item.kind === "weapon") {
+  if (item.kind === "weapon" || item.kind === "vehicle") {
     els.tagAddRow.classList.add("is-hidden");
     els.tagAdd.classList.add("is-hidden");
   } else {
@@ -417,10 +440,11 @@ function openTagEditor(item) {
 
 function renderTagEditor() {
   const item = state.items.find((entry) => entry.id === editingTagItemId);
-  if (item?.kind === "weapon") {
-    const selected = editingTags[0] || "OTHER";
-    els.tagEditor.innerHTML = WEAPON_CATEGORIES.map((category) => {
-      return `<button class="tag-choice ${category === selected ? "active" : ""}" data-pick-weapon-tag="${escapeHtml(category)}" type="button">${escapeHtml(category)}</button>`;
+  if (item?.kind === "weapon" || item?.kind === "vehicle") {
+    const categories = item.kind === "weapon" ? WEAPON_CATEGORIES : VEHICLE_CATEGORIES;
+    const selected = editingTags[0] || categories[0];
+    els.tagEditor.innerHTML = categories.map((category) => {
+      return `<button class="tag-choice ${category === selected ? "active" : ""}" data-pick-category-tag="${escapeHtml(category)}" type="button">${escapeHtml(item.kind === "weapon" ? displayWeaponCategory(category) : category)}</button>`;
     }).join("");
     return;
   }
@@ -451,7 +475,7 @@ function addEditingTag() {
 function saveEditedTags() {
   const item = state.items.find((entry) => entry.id === editingTagItemId);
   if (!item) return;
-  item.tags = item.kind === "weapon" ? [editingTags[0] || "OTHER"] : [...editingTags];
+  item.tags = item.kind === "weapon" ? [editingTags[0] || "OTHER"] : item.kind === "vehicle" ? [editingTags[0] || VEHICLE_CATEGORIES[0]] : [...editingTags];
   saveItemOverride(item);
   saveState();
   renderAll();
@@ -763,9 +787,9 @@ els.tagInput.addEventListener("keydown", (event) => {
   }
 });
 els.tagEditor.addEventListener("click", (event) => {
-  const weaponChoice = event.target.closest("[data-pick-weapon-tag]");
-  if (weaponChoice) {
-    editingTags = [weaponChoice.dataset.pickWeaponTag];
+  const categoryChoice = event.target.closest("[data-pick-category-tag]");
+  if (categoryChoice) {
+    editingTags = [categoryChoice.dataset.pickCategoryTag];
     renderTagEditor();
     return;
   }
