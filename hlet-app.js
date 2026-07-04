@@ -254,12 +254,20 @@ function getUsefulCategory(item) {
 }
 
 function isHiddenTag(tag) {
-  return /^(roleplay|size|gray|white|black|silver|red|blue|green|yellow|orange|brown|transparent|scriptable|external|lod|created|release|version|online|gtav|base game)/i.test(tag);
+  return /^(roleplay|size|gray|white|black|silver|red|blue|green|yellow|orange|brown|transparent|metal|wood|glass|plastic|concrete|fabric|leather|stone|scriptable|external|lod|created|release|version|online|gtav|base game|diffuse|normal|specular|embedded collision|responsive object|dont cast shadows|proxy object|texture variation|time controlled|fragment|cloth)/i.test(tag);
 }
 
 function normalizeTag(kind, tag) {
   if (kind === "vehicle" && /^offroad wheels$/i.test(String(tag))) return "Offroad";
   return tag;
+}
+
+function editableTagsFor(item) {
+  return (item.tags || [])
+    .map((tag) => normalizeTag(item.kind, tag))
+    .filter((tag, index, tags) => tags.indexOf(tag) === index)
+    .filter((tag) => !isHiddenTag(tag) && !isGloballyHiddenTag(item.kind, tag))
+    .sort(sortText);
 }
 
 function hiddenTagsFor(kind) {
@@ -497,11 +505,7 @@ function visibleTags(item) {
     return isGloballyHiddenTag("weapon", category) ? [] : [category];
   }
 
-  return (item.tags || [])
-    .map((tag) => normalizeTag(item.kind, tag))
-    .filter((tag, index, tags) => tags.indexOf(tag) === index)
-    .filter((tag) => !isHiddenTag(tag) && !isGloballyHiddenTag(item.kind, tag))
-    .slice(0, 3);
+  return editableTagsFor(item).slice(0, 3);
 }
 
 function renderThumb(item) {
@@ -518,7 +522,7 @@ function renderThumb(item) {
 
 function openTagEditor(item) {
   editingTagItemId = item.id;
-  editingTags = item.kind === "weapon" || item.kind === "vehicle" ? [getUsefulCategory(item)] : [...(item.tags || [])];
+  editingTags = item.kind === "weapon" || item.kind === "vehicle" ? [getUsefulCategory(item)] : editableTagsFor(item);
   els.tagTitle.textContent = `Edit tags - ${item.name}`;
 
   if (item.kind === "weapon" || item.kind === "vehicle") {
