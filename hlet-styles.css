@@ -474,16 +474,20 @@ nav span {
   padding: 14px;
 }
 
-.settings-panel h3,
-.settings-panel h4 {
+.settings-panel h3 {
   margin: 0 0 10px;
 }
 
-.settings-panel h4 {
-  margin-top: 16px;
-  color: var(--muted);
-  font-size: 0.78rem;
-  text-transform: uppercase;
+.settings-add-tag {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.settings-add-tag input,
+.settings-add-tag button {
+  min-height: 34px;
 }
 
 .settings-tags {
@@ -515,10 +519,6 @@ nav span {
   padding: 0;
   border-radius: 999px;
   line-height: 1;
-}
-
-.muted-tag {
-  background: rgba(255, 255, 255, 0.06);
 }
 
 .list-tools {

@@ -98,8 +98,7 @@ function loadState() {
     parsed.deletedItemIds = parsed.deletedItemIds || [];
     parsed.customItems = parsed.customItems || (parsed.items || []).filter((item) => String(item.id || "").startsWith("custom:"));
     parsed.itemOverrides = parsed.itemOverrides || {};
-    parsed.hiddenTags = parsed.hiddenTags || { object: [], vehicle: [], weapon: [] };
-    parsed.hiddenTags.vehicle = [...new Set((parsed.hiddenTags.vehicle || []).map((tag) => normalizeTag("vehicle", tag)))];
+    parsed.customTags = parsed.customTags || { object: [], vehicle: [], weapon: [] };
     return mergeSeedItems(parsed);
   }
 
@@ -107,7 +106,7 @@ function loadState() {
     items: seed.items || [],
     customItems: [],
     itemOverrides: {},
-    hiddenTags: { object: [], vehicle: [], weapon: [] },
+    customTags: { object: [], vehicle: [], weapon: [] },
     favoritesByUser: {},
     deletedItemIds: [],
     lists: [
@@ -146,7 +145,7 @@ function saveState() {
   const savedState = {
     customItems: state.customItems || [],
     itemOverrides: state.itemOverrides || {},
-    hiddenTags: state.hiddenTags || { object: [], vehicle: [], weapon: [] },
+    customTags: state.customTags || { object: [], vehicle: [], weapon: [] },
     favoritesByUser: state.favoritesByUser || {},
     deletedItemIds: state.deletedItemIds || [],
     lists: state.lists || []
@@ -247,13 +246,11 @@ function getUsefulCategory(item) {
     return "Offroad";
   }
 
-  const preferred = tags.find((tag) => {
-    return !isHiddenTag(tag) && !isGloballyHiddenTag(item.kind, normalizeTag(item.kind, tag));
-  });
+  const preferred = tags.find((tag) => !isMetadataTag(tag));
   return preferred ? normalizeTag(item.kind, preferred) : item.dlc || "Unsorted";
 }
 
-function isHiddenTag(tag) {
+function isMetadataTag(tag) {
   return /^(roleplay|size|gray|white|black|silver|red|blue|green|yellow|orange|brown|transparent|metal|wood|glass|plastic|concrete|fabric|leather|stone|scriptable|external|lod|created|release|version|online|gtav|base game|diffuse|normal|specular|embedded collision|responsive object|dont cast shadows|proxy object|texture variation|time controlled|fragment|cloth)/i.test(tag);
 }
 
@@ -266,18 +263,35 @@ function editableTagsFor(item) {
   return (item.tags || [])
     .map((tag) => normalizeTag(item.kind, tag))
     .filter((tag, index, tags) => tags.indexOf(tag) === index)
-    .filter((tag) => !isHiddenTag(tag) && !isGloballyHiddenTag(item.kind, tag))
+    .filter((tag) => !isMetadataTag(tag))
     .sort(sortText);
 }
 
-function hiddenTagsFor(kind) {
-  state.hiddenTags = state.hiddenTags || { object: [], vehicle: [], weapon: [] };
-  state.hiddenTags[kind] = state.hiddenTags[kind] || [];
-  return state.hiddenTags[kind];
+function customTagsFor(kind) {
+  state.customTags = state.customTags || { object: [], vehicle: [], weapon: [] };
+  state.customTags[kind] = state.customTags[kind] || [];
+  return state.customTags[kind];
 }
 
-function isGloballyHiddenTag(kind, tag) {
-  return hiddenTagsFor(kind).some((hidden) => hidden.toLowerCase() === String(tag).toLowerCase());
+function addCustomTag(kind, tag) {
+  const cleaned = String(tag || "").trim();
+  if (!cleaned) return;
+  const tags = customTagsFor(kind);
+  if (!tags.some((entry) => entry.toLowerCase() === cleaned.toLowerCase())) tags.push(cleaned);
+  tags.sort(sortText);
+}
+
+function removeTagFromItem(item, tag) {
+  const target = String(tag).toLowerCase();
+  const before = item.tags || [];
+  const after = before.filter((entry) => normalizeTag(item.kind, entry).toLowerCase() !== target);
+  item.tags = after;
+  if (after.length !== before.length) saveItemOverride(item);
+}
+
+function deleteTagEverywhere(kind, tag) {
+  state.items.filter((item) => item.kind === kind).forEach((item) => removeTagFromItem(item, tag));
+  state.customTags[kind] = customTagsFor(kind).filter((entry) => entry.toLowerCase() !== String(tag).toLowerCase());
 }
 
 function getWeaponCategory(item) {
@@ -304,33 +318,38 @@ function categoriesFor(type) {
   }
 
   if (type === "weapon") {
-    return WEAPON_CATEGORIES
+    const base = WEAPON_CATEGORIES
       .map((category) => [category, state.items.filter((item) => item.kind === "weapon" && getWeaponCategory(item) === category).length])
-      .filter(([category]) => !isGloballyHiddenTag("weapon", category))
       .filter(([, count]) => count > 0)
       .sort(([a], [b]) => sortText(displayWeaponCategory(a), displayWeaponCategory(b)));
+    customTagsFor("weapon").forEach((tag) => {
+      if (!base.some(([category]) => category.toLowerCase() === tag.toLowerCase())) base.push([tag, 0]);
+    });
+    return base.sort(([a], [b]) => sortText(displayWeaponCategory(a), displayWeaponCategory(b)));
   }
 
   const counts = new Map();
   state.items.filter((item) => item.kind === type).forEach((item) => {
     const category = getUsefulCategory(item);
-    if (!isGloballyHiddenTag(type, category)) {
-      counts.set(category, (counts.get(category) || 0) + 1);
-    }
+    counts.set(category, (counts.get(category) || 0) + 1);
   });
-  return [...counts.entries()].sort(([a], [b]) => sortText(a, b)).slice(0, 28);
+  customTagsFor(type).forEach((tag) => {
+    if (!counts.has(tag)) counts.set(tag, 0);
+  });
+  return [...counts.entries()].sort(([a], [b]) => sortText(a, b));
 }
 
 function addItemCategoriesFor(kind) {
   if (kind === "weapon") {
-    return [...WEAPON_CATEGORIES].sort((a, b) => sortText(displayWeaponCategory(a), displayWeaponCategory(b)));
+    return [...new Set([...WEAPON_CATEGORIES, ...customTagsFor("weapon")])].sort((a, b) => sortText(displayWeaponCategory(a), displayWeaponCategory(b)));
   }
   if (kind === "vehicle") {
-    return [...VEHICLE_CATEGORIES].sort(sortText);
+    return [...new Set([...VEHICLE_CATEGORIES, ...customTagsFor("vehicle")])].sort(sortText);
   }
 
   const categories = categoriesFor(kind);
-  return categories.length ? categories.map(([category]) => category) : ["Unsorted"];
+  const categoryNames = categories.length ? categories.map(([category]) => category) : ["Unsorted"];
+  return [...new Set([...categoryNames, ...customTagsFor(kind)])].sort(sortText);
 }
 
 function renderCustomCategorySelect(selectedTag = "") {
@@ -502,7 +521,7 @@ function renderCard(item, options = {}) {
 function visibleTags(item) {
   if (item.kind === "weapon") {
     const category = getWeaponCategory(item);
-    return isGloballyHiddenTag("weapon", category) ? [] : [category];
+    return [category];
   }
 
   return editableTagsFor(item).slice(0, 3);
@@ -664,14 +683,22 @@ function allTagCountsFor(kind) {
     WEAPON_CATEGORIES.forEach((category) => {
       counts.set(category, state.items.filter((item) => item.kind === "weapon" && getWeaponCategory(item) === category).length);
     });
-    return [...counts.entries()].filter(([, count]) => count > 0).sort(([a], [b]) => sortText(displayWeaponCategory(a), displayWeaponCategory(b)));
+    customTagsFor("weapon").forEach((tag) => {
+      if (!counts.has(tag)) counts.set(tag, 0);
+    });
+    return [...counts.entries()]
+      .filter(([tag, count]) => count > 0 || customTagsFor("weapon").some((entry) => entry.toLowerCase() === tag.toLowerCase()))
+      .sort(([a], [b]) => sortText(displayWeaponCategory(a), displayWeaponCategory(b)));
   }
 
   state.items.filter((item) => item.kind === kind).forEach((item) => {
     (item.tags || []).forEach((tag) => {
       const normalizedTag = normalizeTag(kind, tag);
-      if (!isHiddenTag(normalizedTag)) counts.set(normalizedTag, (counts.get(normalizedTag) || 0) + 1);
+      if (!isMetadataTag(normalizedTag)) counts.set(normalizedTag, (counts.get(normalizedTag) || 0) + 1);
     });
+  });
+  customTagsFor(kind).forEach((tag) => {
+    if (!counts.has(tag)) counts.set(tag, 0);
   });
   return [...counts.entries()].sort(([a], [b]) => sortText(a, b));
 }
@@ -684,28 +711,22 @@ function renderSettings() {
   ];
 
   els.settingsPanels.innerHTML = sections.map(([kind, label]) => {
-    const hidden = hiddenTagsFor(kind);
-    const activeTags = allTagCountsFor(kind).filter(([tag]) => !isGloballyHiddenTag(kind, tag));
+    const activeTags = allTagCountsFor(kind);
     return `
       <section class="settings-panel">
         <h3>${label}</h3>
+        <form class="settings-add-tag" data-add-settings-tag="${kind}">
+          <input name="tag" placeholder="Add tag..." />
+          <button type="submit">Add tag</button>
+        </form>
         <div class="settings-tags">
           ${activeTags.length ? activeTags.map(([tag, count]) => `
             <span class="settings-tag">
               ${escapeHtml(kind === "weapon" ? displayWeaponCategory(tag) : tag)}
               <small>${count.toLocaleString()}</small>
-              <button data-hide-global-tag="${escapeHtml(tag)}" data-tag-kind="${kind}" type="button" aria-label="Remove ${escapeHtml(tag)}">x</button>
+              <button data-delete-settings-tag="${escapeHtml(tag)}" data-tag-kind="${kind}" type="button" aria-label="Delete ${escapeHtml(tag)}">x</button>
             </span>
           `).join("") : `<span class="muted">No active tags</span>`}
-        </div>
-        <h4>Hidden</h4>
-        <div class="settings-tags">
-          ${hidden.length ? hidden.map((tag) => `
-            <span class="settings-tag muted-tag">
-              ${escapeHtml(kind === "weapon" ? displayWeaponCategory(tag) : tag)}
-              <button data-restore-global-tag="${escapeHtml(tag)}" data-tag-kind="${kind}" type="button" aria-label="Restore ${escapeHtml(tag)}">+</button>
-            </span>
-          `).join("") : `<span class="muted">None</span>`}
         </div>
       </section>
     `;
@@ -785,26 +806,28 @@ els.favoriteMenu.addEventListener("click", (event) => {
 });
 
 els.settingsPanels.addEventListener("click", (event) => {
-  const hideButton = event.target.closest("[data-hide-global-tag]");
-  if (hideButton) {
-    const kind = hideButton.dataset.tagKind;
-    const tag = hideButton.dataset.hideGlobalTag;
-    const hidden = hiddenTagsFor(kind);
-    if (!hidden.some((entry) => entry.toLowerCase() === tag.toLowerCase())) hidden.push(tag);
+  const deleteButton = event.target.closest("[data-delete-settings-tag]");
+  if (deleteButton) {
+    const kind = deleteButton.dataset.tagKind;
+    const tag = deleteButton.dataset.deleteSettingsTag;
+    if (!confirm(`Delete tag ${tag} from all ${kind}s?`)) return;
+    deleteTagEverywhere(kind, tag);
     if (activeCategory === tag) activeCategory = "All";
     saveState();
     renderAll();
-    return;
   }
+});
 
-  const restoreButton = event.target.closest("[data-restore-global-tag]");
-  if (restoreButton) {
-    const kind = restoreButton.dataset.tagKind;
-    const tag = restoreButton.dataset.restoreGlobalTag;
-    state.hiddenTags[kind] = hiddenTagsFor(kind).filter((entry) => entry.toLowerCase() !== tag.toLowerCase());
-    saveState();
-    renderAll();
-  }
+els.settingsPanels.addEventListener("submit", (event) => {
+  const form = event.target.closest("[data-add-settings-tag]");
+  if (!form) return;
+  event.preventDefault();
+  const kind = form.dataset.addSettingsTag;
+  const tag = new FormData(form).get("tag");
+  addCustomTag(kind, tag);
+  saveState();
+  form.reset();
+  renderAll();
 });
 
 [els.search, els.listSearch, els.favoriteSearch].forEach((input) => {
