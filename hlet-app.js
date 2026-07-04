@@ -89,14 +89,18 @@ const els = {
 function loadState() {
   const saved = localStorage.getItem(STORAGE_KEY);
   if (saved) {
-    const parsed = JSON.parse(saved);
-    parsed.favoritesByUser = parsed.favoritesByUser || {};
-    parsed.deletedItemIds = parsed.deletedItemIds || [];
-    parsed.customItems = parsed.customItems || (parsed.items || []).filter((item) => String(item.id || "").startsWith("custom:"));
-    parsed.itemOverrides = parsed.itemOverrides || {};
-    parsed.customTags = parsed.customTags || { object: [], vehicle: [], weapon: [] };
-    parsed.deletedTags = parsed.deletedTags || { object: [], vehicle: [], weapon: [] };
-    return mergeSeedItems(parsed);
+    try {
+      const parsed = JSON.parse(saved);
+      parsed.favoritesByUser = parsed.favoritesByUser || {};
+      parsed.deletedItemIds = parsed.deletedItemIds || [];
+      parsed.customItems = parsed.customItems || (parsed.items || []).filter((item) => String(item.id || "").startsWith("custom:"));
+      parsed.itemOverrides = parsed.itemOverrides || {};
+      parsed.customTags = parsed.customTags || { object: [], vehicle: [], weapon: [] };
+      parsed.deletedTags = parsed.deletedTags || { object: [], vehicle: [], weapon: [] };
+      return mergeSeedItems(parsed);
+    } catch (error) {
+      console.error("Could not read saved Events Team Hub data.", error);
+    }
   }
 
   return {
@@ -179,7 +183,12 @@ function sortItemsByName(items) {
 }
 
 function currentUser() {
-  return JSON.parse(sessionStorage.getItem(SESSION_KEY) || "null");
+  try {
+    return JSON.parse(sessionStorage.getItem(SESSION_KEY) || "null");
+  } catch (error) {
+    sessionStorage.removeItem(SESSION_KEY);
+    return null;
+  }
 }
 
 function currentUserKey() {
@@ -807,7 +816,7 @@ function setTab(tab) {
 els.loginForm.addEventListener("submit", (event) => {
   event.preventDefault();
   const formData = new FormData(els.loginForm);
-  if (formData.get("password") !== PASSWORD) {
+  if (String(formData.get("password") || "").trim() !== PASSWORD) {
     els.loginStatus.textContent = "Wrong password.";
     return;
   }
