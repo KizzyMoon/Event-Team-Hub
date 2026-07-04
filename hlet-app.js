@@ -4,10 +4,6 @@ const SESSION_KEY = "hlet-session-v1";
 const PAGE_SIZE = 120;
 const WEAPON_CATEGORIES = ["HEAVY", "SMGS", "THROWABLES", "MELEE", "OTHER", "PISTOLS", "SHOTGUNS", "RIFLES"];
 const VEHICLE_CATEGORIES = [
-  "BCSO",
-  "LSPD",
-  "DOA",
-  "FIB",
   "EMS",
   "G6",
   "Event",
