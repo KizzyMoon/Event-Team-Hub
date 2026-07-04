@@ -156,8 +156,8 @@ function saveState() {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(savedState));
   } catch (error) {
-    localStorage.removeItem(STORAGE_KEY);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(savedState));
+    console.error("Could not save Events Team Hub data.", error);
+    alert("Your browser could not save this change because its local storage is full. Nothing was wiped. Remove a few uploaded images or use smaller images, then try again.");
   }
 }
 
@@ -417,14 +417,14 @@ function readImageFile(file) {
     reader.addEventListener("load", () => {
       const image = new Image();
       image.addEventListener("load", () => {
-        const maxSize = 900;
+        const maxSize = 520;
         const scale = Math.min(1, maxSize / Math.max(image.width, image.height));
         const canvas = document.createElement("canvas");
         canvas.width = Math.max(1, Math.round(image.width * scale));
         canvas.height = Math.max(1, Math.round(image.height * scale));
         const context = canvas.getContext("2d");
         context.drawImage(image, 0, 0, canvas.width, canvas.height);
-        resolve(canvas.toDataURL("image/jpeg", 0.84));
+        resolve(canvas.toDataURL("image/jpeg", 0.72));
       });
       image.addEventListener("error", () => resolve(reader.result));
       image.src = reader.result;
