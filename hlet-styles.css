@@ -278,7 +278,7 @@ nav span {
   border: 1px solid var(--line);
   border-radius: 8px;
   background: var(--panel);
-  padding: 12px 12px 28px;
+  padding: 12px 12px 42px;
   cursor: pointer;
   transition: border-color 0.16s ease, box-shadow 0.16s ease;
 }
@@ -329,38 +329,46 @@ nav span {
   color: #ffd34d;
 }
 
-.delete-corner {
+.card-bottom-actions {
   position: absolute;
-  display: grid;
-  place-items: center;
+  left: 10px;
   right: 10px;
   bottom: 8px;
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr) 22px;
+  gap: 8px;
+  align-items: center;
+}
+
+.card-bottom-actions [data-edit-tags] {
+  min-height: 24px;
+  height: 24px;
+  padding: 3px 8px;
+  font-size: 0.72rem;
+}
+
+.delete-corner,
+.blacklist-flag {
+  display: grid;
+  place-items: center;
   width: 22px;
   height: 22px;
   min-height: 22px;
   padding: 0;
-  border-color: rgba(255, 92, 103, 0.7);
   border-radius: 999px;
+  font-size: 0.86rem;
+  line-height: 1;
+}
+
+.delete-corner {
+  border-color: rgba(255, 92, 103, 0.7);
   color: #ffb9bf;
-  line-height: 0;
 }
 
 .blacklist-flag {
-  position: absolute;
-  display: grid;
-  place-items: center;
-  left: 10px;
-  bottom: 8px;
-  width: 22px;
-  height: 22px;
-  min-height: 22px;
-  padding: 0;
   border-color: #3a4256;
-  border-radius: 999px;
   background: #151924;
   color: #7b8498;
-  font-size: 0.86rem;
-  line-height: 1;
 }
 
 .blacklist-flag.active {

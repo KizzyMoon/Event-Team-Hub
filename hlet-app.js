@@ -401,10 +401,12 @@ function renderCard(item, options = {}) {
       </div>
       <div class="card-actions">
         ${options.removeFromList ? `<button class="card-remove" data-remove-from-list="${escapeHtml(item.id)}" type="button">Remove</button>` : listButton}
-        ${editTagsButton}
       </div>
-      <button class="blacklist-flag ${item.blacklisted ? "active" : ""}" data-toggle-blacklist="${escapeHtml(item.id)}" type="button" aria-label="${item.blacklisted ? "Remove blacklist" : "Mark blacklisted"}">⚑</button>
-      <button class="delete-corner" data-delete-item="${escapeHtml(item.id)}" type="button" aria-label="Delete ${escapeHtml(item.name)}">x</button>
+      <div class="card-bottom-actions">
+        <button class="blacklist-flag ${item.blacklisted ? "active" : ""}" data-toggle-blacklist="${escapeHtml(item.id)}" type="button" aria-label="${item.blacklisted ? "Remove blacklist" : "Mark blacklisted"}">⚑</button>
+        ${editTagsButton}
+        <button class="delete-corner" data-delete-item="${escapeHtml(item.id)}" type="button" aria-label="Delete ${escapeHtml(item.name)}">x</button>
+      </div>
     </article>
   `;
 }
