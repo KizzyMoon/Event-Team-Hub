@@ -115,7 +115,7 @@
 
     <dialog data-item-dialog>
       <form method="dialog" data-item-form>
-        <h3>Add custom item</h3>
+        <h3 data-item-title>Add custom item</h3>
         <label>Name<input name="name" required /></label>
         <label>Spawn code<input name="code" required /></label>
         <label>Type
@@ -126,6 +126,10 @@
           </select>
         </label>
         <label>Image URL<input name="image" placeholder="https://..." /></label>
+        <label class="image-drop" data-image-drop>Upload image
+          <input name="imageFile" type="file" accept="image/*" />
+          <span data-image-file-name>Drop an image here, paste one, or choose from your computer</span>
+        </label>
         <label>Category
           <select name="tags" data-custom-category></select>
         </label>
@@ -151,7 +155,7 @@
       </form>
     </dialog>
 
-    <script src="hlet-data.js?v=bottom-actions-20260704"></script>
-    <script src="hlet-app.js?v=bottom-actions-20260704"></script>
+    <script src="hlet-data.js?v=item-editor-images-20260704"></script>
+    <script src="hlet-app.js?v=item-editor-images-20260704"></script>
   </body>
 </html>

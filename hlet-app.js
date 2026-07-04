@@ -41,6 +41,8 @@ let activeListId = state.lists[0]?.id || "";
 let renderLimit = PAGE_SIZE;
 let editingTagItemId = "";
 let editingTags = [];
+let editingItemId = "";
+let pendingImageData = "";
 
 const els = {
   loginView: document.querySelector("[data-login-view]"),
@@ -69,7 +71,10 @@ const els = {
   grid: document.querySelector("[data-grid]"),
   itemDialog: document.querySelector("[data-item-dialog]"),
   itemForm: document.querySelector("[data-item-form]"),
+  itemTitle: document.querySelector("[data-item-title]"),
   customCategory: document.querySelector("[data-custom-category]"),
+  imageDrop: document.querySelector("[data-image-drop]"),
+  imageFileName: document.querySelector("[data-image-file-name]"),
   tagDialog: document.querySelector("[data-tag-dialog]"),
   tagForm: document.querySelector("[data-tag-form]"),
   tagTitle: document.querySelector("[data-tag-title]"),
@@ -206,6 +211,10 @@ function saveItemOverride(item) {
   state.itemOverrides = state.itemOverrides || {};
   state.itemOverrides[item.id] = {
     ...(state.itemOverrides[item.id] || {}),
+    name: item.name,
+    code: item.code,
+    image: item.image || "",
+    kind: item.kind,
     tags: item.tags || [],
     blacklisted: Boolean(item.blacklisted),
     notes: item.notes || ""
@@ -308,12 +317,78 @@ function addItemCategoriesFor(kind) {
   return categories.length ? categories.map(([category]) => category) : ["Unsorted"];
 }
 
-function renderCustomCategorySelect() {
+function renderCustomCategorySelect(selectedTag = "") {
   const kind = els.itemForm.elements.kind.value;
-  const categories = addItemCategoriesFor(kind);
+  const categories = [...addItemCategoriesFor(kind)];
+  if (selectedTag && !categories.includes(selectedTag)) categories.unshift(selectedTag);
   els.customCategory.innerHTML = categories.map((category) => {
     return `<option value="${escapeHtml(category)}">${escapeHtml(category)}</option>`;
   }).join("");
+  if (selectedTag && categories.includes(selectedTag)) {
+    els.customCategory.value = selectedTag;
+  }
+}
+
+function resetImageUploadLabel(text = "Drop an image here, paste one, or choose from your computer") {
+  if (els.imageFileName) els.imageFileName.textContent = text;
+}
+
+function readImageFile(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.addEventListener("load", () => {
+      const image = new Image();
+      image.addEventListener("load", () => {
+        const maxSize = 900;
+        const scale = Math.min(1, maxSize / Math.max(image.width, image.height));
+        const canvas = document.createElement("canvas");
+        canvas.width = Math.max(1, Math.round(image.width * scale));
+        canvas.height = Math.max(1, Math.round(image.height * scale));
+        const context = canvas.getContext("2d");
+        context.drawImage(image, 0, 0, canvas.width, canvas.height);
+        resolve(canvas.toDataURL("image/jpeg", 0.84));
+      });
+      image.addEventListener("error", () => resolve(reader.result));
+      image.src = reader.result;
+    });
+    reader.addEventListener("error", () => reject(reader.error));
+    reader.readAsDataURL(file);
+  });
+}
+
+async function attachImageFile(file, source = "Selected") {
+  if (!file || !file.type.startsWith("image/")) return;
+  pendingImageData = await readImageFile(file);
+  els.itemForm.elements.image.value = "";
+  resetImageUploadLabel(`${source}: ${file.name || "clipboard image"}`);
+}
+
+function openAddItemDialog() {
+  editingItemId = "";
+  pendingImageData = "";
+  els.itemTitle.textContent = "Add custom item";
+  els.itemForm.reset();
+  els.itemForm.elements.kind.disabled = false;
+  resetImageUploadLabel();
+  renderCustomCategorySelect();
+  els.itemDialog.showModal();
+}
+
+function openItemEditor(item) {
+  editingItemId = item.id;
+  pendingImageData = "";
+  els.itemTitle.textContent = `Edit ${item.name}`;
+  els.itemForm.reset();
+  els.itemForm.elements.name.value = item.name || "";
+  els.itemForm.elements.code.value = item.code || "";
+  els.itemForm.elements.kind.value = item.kind || "object";
+  els.itemForm.elements.kind.disabled = false;
+  els.itemForm.elements.image.value = item.image && !String(item.image).startsWith("data:") ? item.image : "";
+  els.itemForm.elements.blacklisted.checked = Boolean(item.blacklisted);
+  els.itemForm.elements.notes.value = item.notes || "";
+  resetImageUploadLabel(item.image ? "Current image saved. Drop, paste, or choose to replace it." : undefined);
+  renderCustomCategorySelect(getUsefulCategory(item));
+  els.itemDialog.showModal();
 }
 
 function filteredItems() {
@@ -386,7 +461,7 @@ function renderCard(item, options = {}) {
     ? `<button data-add-to-list="${escapeHtml(item.id)}" type="button">+ List</button>`
     : "";
   const editTagsButton = item.kind === "object" || item.kind === "vehicle" || item.kind === "weapon"
-    ? `<button data-edit-tags="${escapeHtml(item.id)}" type="button">Edit tags</button>`
+    ? `<button data-edit-item="${escapeHtml(item.id)}" type="button">Edit</button>`
     : "";
   const thumb = renderThumb(item);
   return `
@@ -789,11 +864,11 @@ document.addEventListener("click", async (event) => {
     return;
   }
 
-  const editTags = event.target.closest("[data-edit-tags]");
-  if (editTags) {
-    const item = state.items.find((entry) => entry.id === editTags.dataset.editTags);
+  const editItem = event.target.closest("[data-edit-item]");
+  if (editItem) {
+    const item = state.items.find((entry) => entry.id === editItem.dataset.editItem);
     if (!item) return;
-    openTagEditor(item);
+    openItemEditor(item);
     return;
   }
 
@@ -818,12 +893,38 @@ document.addEventListener("click", async (event) => {
 
 });
 
-document.querySelector("[data-open-add]").addEventListener("click", () => {
-  renderCustomCategorySelect();
-  els.itemDialog.showModal();
-});
+document.querySelector("[data-open-add]").addEventListener("click", openAddItemDialog);
 document.querySelector("[data-close-dialog]").addEventListener("click", () => els.itemDialog.close());
-els.itemForm.elements.kind.addEventListener("change", renderCustomCategorySelect);
+els.itemForm.elements.kind.addEventListener("change", () => renderCustomCategorySelect());
+els.itemForm.elements.imageFile.addEventListener("change", async () => {
+  await attachImageFile(els.itemForm.elements.imageFile.files?.[0], "Uploaded");
+});
+
+["dragenter", "dragover"].forEach((eventName) => {
+  els.imageDrop.addEventListener(eventName, (event) => {
+    event.preventDefault();
+    els.imageDrop.classList.add("drag-over");
+  });
+});
+
+["dragleave", "drop"].forEach((eventName) => {
+  els.imageDrop.addEventListener(eventName, (event) => {
+    event.preventDefault();
+    els.imageDrop.classList.remove("drag-over");
+  });
+});
+
+els.imageDrop.addEventListener("drop", async (event) => {
+  await attachImageFile(event.dataTransfer.files?.[0], "Dropped");
+});
+
+document.addEventListener("paste", async (event) => {
+  if (!els.itemDialog.open) return;
+  const file = [...(event.clipboardData?.files || [])].find((entry) => entry.type.startsWith("image/"));
+  if (!file) return;
+  event.preventDefault();
+  await attachImageFile(file, "Pasted");
+});
 
 els.tagCancel.addEventListener("click", () => els.tagDialog.close());
 els.tagAdd.addEventListener("click", addEditingTag);
@@ -852,28 +953,48 @@ els.tagForm.addEventListener("submit", (event) => {
   els.tagDialog.close();
 });
 
-els.itemForm.addEventListener("submit", (event) => {
+els.itemForm.addEventListener("submit", async (event) => {
   event.preventDefault();
   const form = Object.fromEntries(new FormData(els.itemForm).entries());
-  const item = {
-    id: `custom:${crypto.randomUUID()}`,
-    kind: form.kind,
-    name: form.name,
-    code: form.code,
-    dlc: "Custom",
-    image: form.image,
-    tags: form.tags ? [form.tags] : [],
-    blacklisted: Boolean(form.blacklisted),
-    notes: form.notes || ""
-  };
-  state.items.unshift(item);
-  state.customItems = state.customItems || [];
-  state.customItems.unshift(item);
+  const existingItem = editingItemId ? state.items.find((item) => item.id === editingItemId) : null;
+  const uploadedFile = els.itemForm.elements.imageFile.files?.[0];
+  if (uploadedFile) await attachImageFile(uploadedFile, "Uploaded");
+
+  if (existingItem) {
+    existingItem.kind = form.kind;
+    existingItem.name = form.name;
+    existingItem.code = form.code;
+    existingItem.image = pendingImageData || form.image || existingItem.image || "";
+    existingItem.tags = form.tags ? [form.tags] : [];
+    existingItem.blacklisted = Boolean(form.blacklisted);
+    existingItem.notes = form.notes || "";
+    saveItemOverride(existingItem);
+  } else {
+    const item = {
+      id: `custom:${crypto.randomUUID()}`,
+      kind: form.kind,
+      name: form.name,
+      code: form.code,
+      dlc: "Custom",
+      image: pendingImageData || form.image || "",
+      tags: form.tags ? [form.tags] : [],
+      blacklisted: Boolean(form.blacklisted),
+      notes: form.notes || ""
+    };
+    state.items.unshift(item);
+    state.customItems = state.customItems || [];
+    state.customItems.unshift(item);
+  }
+
   saveState();
+  const targetTab = { object: "objects", vehicle: "vehicles", weapon: "weapons" }[form.kind];
   els.itemForm.reset();
+  editingItemId = "";
+  pendingImageData = "";
+  resetImageUploadLabel();
   renderCustomCategorySelect();
   els.itemDialog.close();
-  setTab({ object: "objects", vehicle: "vehicles", weapon: "weapons" }[form.kind]);
+  setTab(targetTab);
 });
 
 document.querySelector("[data-new-list]").addEventListener("click", () => {

@@ -576,6 +576,23 @@ dialog::backdrop {
   gap: 12px;
 }
 
+.image-drop {
+  padding: 10px;
+  border: 1px dashed var(--line);
+  border-radius: 7px;
+  background: #0b0d13;
+}
+
+.image-drop.drag-over {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px rgba(196, 123, 255, 0.35);
+}
+
+.image-drop span {
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
 .tag-editor {
   display: flex;
   min-height: 44px;
