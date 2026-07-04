@@ -99,6 +99,7 @@ function loadState() {
     parsed.customItems = parsed.customItems || (parsed.items || []).filter((item) => String(item.id || "").startsWith("custom:"));
     parsed.itemOverrides = parsed.itemOverrides || {};
     parsed.customTags = parsed.customTags || { object: [], vehicle: [], weapon: [] };
+    parsed.deletedTags = parsed.deletedTags || { object: [], vehicle: [], weapon: [] };
     return mergeSeedItems(parsed);
   }
 
@@ -107,6 +108,7 @@ function loadState() {
     customItems: [],
     itemOverrides: {},
     customTags: { object: [], vehicle: [], weapon: [] },
+    deletedTags: { object: [], vehicle: [], weapon: [] },
     favoritesByUser: {},
     deletedItemIds: [],
     lists: [
@@ -137,7 +139,7 @@ function mergeSeedItems(savedState) {
 
   return {
     ...savedState,
-    items: [...merged.values()]
+    items: [...merged.values()].map(removeDeletedTagsFromItem)
   };
 }
 
@@ -146,6 +148,7 @@ function saveState() {
     customItems: state.customItems || [],
     itemOverrides: state.itemOverrides || {},
     customTags: state.customTags || { object: [], vehicle: [], weapon: [] },
+    deletedTags: state.deletedTags || { object: [], vehicle: [], weapon: [] },
     favoritesByUser: state.favoritesByUser || {},
     deletedItemIds: state.deletedItemIds || [],
     lists: state.lists || []
@@ -273,9 +276,40 @@ function customTagsFor(kind) {
   return state.customTags[kind];
 }
 
+function deletedTagsFor(kind) {
+  state.deletedTags = state.deletedTags || { object: [], vehicle: [], weapon: [] };
+  state.deletedTags[kind] = state.deletedTags[kind] || [];
+  return state.deletedTags[kind];
+}
+
+function rememberDeletedTag(kind, tag) {
+  const cleaned = normalizeTag(kind, tag);
+  const tags = deletedTagsFor(kind);
+  if (!tags.some((entry) => entry.toLowerCase() === cleaned.toLowerCase())) tags.push(cleaned);
+}
+
+function forgetDeletedTag(kind, tag) {
+  state.deletedTags = state.deletedTags || { object: [], vehicle: [], weapon: [] };
+  state.deletedTags[kind] = deletedTagsFor(kind).filter((entry) => entry.toLowerCase() !== normalizeTag(kind, tag).toLowerCase());
+}
+
+function tagWasDeleted(kind, tag) {
+  const target = normalizeTag(kind, tag).toLowerCase();
+  return deletedTagsFor(kind).some((entry) => entry.toLowerCase() === target);
+}
+
+function removeDeletedTagsFromItem(item) {
+  if (!item?.tags?.length) return item;
+  return {
+    ...item,
+    tags: item.tags.filter((tag) => !tagWasDeleted(item.kind, tag))
+  };
+}
+
 function addCustomTag(kind, tag) {
   const cleaned = String(tag || "").trim();
   if (!cleaned) return false;
+  forgetDeletedTag(kind, cleaned);
   const tags = customTagsFor(kind);
   if (tags.some((entry) => entry.toLowerCase() === cleaned.toLowerCase())) return false;
   tags.push(cleaned);
@@ -292,7 +326,8 @@ function removeTagFromItem(item, tag) {
 }
 
 function deleteTagEverywhere(kind, tag) {
-  state.items.filter((item) => item.kind === kind).forEach((item) => removeTagFromItem(item, tag));
+  rememberDeletedTag(kind, tag);
+  state.items = state.items.map((item) => item.kind === kind ? removeDeletedTagsFromItem(item) : item);
   state.customTags[kind] = customTagsFor(kind).filter((entry) => entry.toLowerCase() !== String(tag).toLowerCase());
 }
 
