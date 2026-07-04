@@ -63,6 +63,27 @@
         <div class="grid" data-grid></div>
       </section>
 
+      <section class="favorites-view is-hidden" data-favorites-view>
+        <aside>
+          <div class="list-head">
+            <span>Favorites</span>
+          </div>
+          <div data-favorite-menu></div>
+        </aside>
+        <article>
+          <div class="section-head">
+            <div>
+              <h2 data-favorite-title>Objects</h2>
+              <span data-favorite-results>0 items</span>
+            </div>
+            <div class="list-tools">
+              <input data-favorite-search type="search" placeholder="Search favorites..." />
+            </div>
+          </div>
+          <div class="grid compact" data-favorite-items></div>
+        </article>
+      </section>
+
       <section class="lists is-hidden" data-lists>
         <aside>
           <div class="list-head">

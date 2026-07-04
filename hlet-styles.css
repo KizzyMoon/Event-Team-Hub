@@ -231,6 +231,7 @@ nav span {
 
 .browser,
 .lists article,
+.favorites-view article,
 .settings {
   padding: 24px;
 }
@@ -393,13 +394,15 @@ nav span {
   white-space: nowrap;
 }
 
-.lists {
+.lists,
+.favorites-view {
   min-height: calc(100vh - 56px);
   display: grid;
   grid-template-columns: 260px minmax(0, 1fr);
 }
 
-.lists aside {
+.lists aside,
+.favorites-view aside {
   border-right: 1px solid var(--line);
   background: var(--panel);
 }

@@ -43,6 +43,12 @@ const els = {
   tabs: document.querySelectorAll("[data-tab]"),
   toolbar: document.querySelector("[data-toolbar]"),
   browser: document.querySelector("[data-browser]"),
+  favoritesView: document.querySelector("[data-favorites-view]"),
+  favoriteMenu: document.querySelector("[data-favorite-menu]"),
+  favoriteTitle: document.querySelector("[data-favorite-title]"),
+  favoriteResults: document.querySelector("[data-favorite-results]"),
+  favoriteSearch: document.querySelector("[data-favorite-search]"),
+  favoriteItems: document.querySelector("[data-favorite-items]"),
   lists: document.querySelector("[data-lists]"),
   settings: document.querySelector("[data-settings]"),
   search: document.querySelector("[data-search]"),
@@ -537,6 +543,32 @@ function renderLists() {
   els.listItems.innerHTML = items.map((item) => renderCard(item, { removeFromList: true })).join("");
 }
 
+function renderFavorites() {
+  const groups = [
+    ["Objects", "object"],
+    ["Vehicles", "vehicle"],
+    ["Weapons", "weapon"]
+  ];
+  const favorites = favoriteItems();
+  const activeGroup = groups.some(([label]) => label === activeCategory) ? activeCategory : "Objects";
+  if (activeCategory !== activeGroup) activeCategory = activeGroup;
+
+  els.favoriteMenu.innerHTML = groups.map(([label, kind]) => {
+    const count = favorites.filter((item) => item.kind === kind).length;
+    return `<button class="list-row ${label === activeCategory ? "active" : ""}" data-favorite-category="${label}" type="button"><span>${label}</span><span>${count}</span></button>`;
+  }).join("");
+
+  const selectedKind = groups.find(([label]) => label === activeCategory)?.[1] || "object";
+  const search = els.favoriteSearch.value.trim().toLowerCase();
+  const items = favorites
+    .filter((item) => item.kind === selectedKind)
+    .filter((item) => !search || `${item.name} ${item.code} ${(item.tags || []).join(" ")} ${visibleTags(item).join(" ")}`.toLowerCase().includes(search));
+
+  els.favoriteTitle.textContent = activeCategory;
+  els.favoriteResults.textContent = `${items.length.toLocaleString()} items`;
+  els.favoriteItems.innerHTML = items.map((item) => renderCard(item)).join("");
+}
+
 function allTagCountsFor(kind) {
   const counts = new Map();
   if (kind === "weapon") {
@@ -596,6 +628,7 @@ function renderAll() {
   renderCategories();
   renderTargetListSelect();
   renderBrowser();
+  renderFavorites();
   renderLists();
   renderSettings();
 }
@@ -603,7 +636,7 @@ function renderAll() {
 function setTab(tab) {
   activeTab = tab;
   renderLimit = PAGE_SIZE;
-  activeCategory = "All";
+  activeCategory = tab === "favorites" ? "Objects" : "All";
   els.tabs.forEach((button) => button.classList.toggle("active", button.dataset.tab === tab));
   els.search.placeholder = {
     objects: "Search objects...",
@@ -613,8 +646,10 @@ function setTab(tab) {
   }[tab] || "Search names, spawn codes, categories...";
   const listMode = tab === "lists";
   const settingsMode = tab === "settings";
-  els.toolbar.classList.toggle("is-hidden", listMode || settingsMode);
-  els.browser.classList.toggle("is-hidden", listMode || settingsMode);
+  const favoriteMode = tab === "favorites";
+  els.toolbar.classList.toggle("is-hidden", listMode || settingsMode || favoriteMode);
+  els.browser.classList.toggle("is-hidden", listMode || settingsMode || favoriteMode);
+  els.favoritesView.classList.toggle("is-hidden", !favoriteMode);
   els.lists.classList.toggle("is-hidden", !listMode);
   els.settings.classList.toggle("is-hidden", !settingsMode);
   renderAll();
@@ -654,6 +689,13 @@ els.categoryChips.addEventListener("click", (event) => {
   renderAll();
 });
 
+els.favoriteMenu.addEventListener("click", (event) => {
+  const button = event.target.closest("[data-favorite-category]");
+  if (!button) return;
+  activeCategory = button.dataset.favoriteCategory;
+  renderAll();
+});
+
 els.settingsPanels.addEventListener("click", (event) => {
   const hideButton = event.target.closest("[data-hide-global-tag]");
   if (hideButton) {
@@ -677,7 +719,7 @@ els.settingsPanels.addEventListener("click", (event) => {
   }
 });
 
-[els.search, els.blacklistFilter, els.listSearch].forEach((input) => {
+[els.search, els.blacklistFilter, els.listSearch, els.favoriteSearch].forEach((input) => {
   input.addEventListener("input", () => {
     renderLimit = PAGE_SIZE;
     renderAll();
