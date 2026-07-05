@@ -87,6 +87,7 @@ let editingItemId = "";
 let pendingImageData = "";
 let storedImages = {};
 let meetingView = "dashboard";
+let calendarDate = new Date();
 
 const els = {
   loginView: document.querySelector("[data-login-view]"),
@@ -125,6 +126,9 @@ const els = {
   archiveTitle: document.querySelector("[data-archive-title]"),
   archiveSubtitle: document.querySelector("[data-archive-subtitle]"),
   archiveContent: document.querySelector("[data-archive-content]"),
+  calendarDialog: document.querySelector("[data-calendar-dialog]"),
+  calendarTitle: document.querySelector("[data-calendar-title]"),
+  calendarGrid: document.querySelector("[data-calendar-grid]"),
   settings: document.querySelector("[data-settings]"),
   search: document.querySelector("[data-search]"),
   categories: document.querySelector("[data-categories]"),
@@ -1360,6 +1364,52 @@ function openMeetingArchive(year = "") {
   els.archiveDialog.showModal();
 }
 
+function setCalendarToBestMonth() {
+  const upcoming = normalizeMeetings(state.meetings || DEFAULT_MEETINGS).find((meeting) => meeting.status === "upcoming" && meeting.date);
+  const base = upcoming?.date ? new Date(`${upcoming.date}T00:00`) : new Date();
+  calendarDate = Number.isNaN(base.getTime()) ? new Date() : base;
+}
+
+function sameCalendarDay(meeting, year, month, day) {
+  if (!meeting.date) return false;
+  const [meetingYear, meetingMonth, meetingDay] = meeting.date.split("-").map(Number);
+  return meetingYear === year && meetingMonth === month + 1 && meetingDay === day;
+}
+
+function renderEventCalendar() {
+  state.meetings = normalizeMeetings(state.meetings || DEFAULT_MEETINGS);
+  const year = calendarDate.getFullYear();
+  const month = calendarDate.getMonth();
+  const firstDay = new Date(year, month, 1);
+  const lastDay = new Date(year, month + 1, 0);
+  const startOffset = (firstDay.getDay() + 6) % 7;
+  const monthName = firstDay.toLocaleDateString("en-GB", { month: "long", year: "numeric" });
+  const weekDays = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+  const cells = [];
+
+  els.calendarTitle.textContent = monthName;
+  weekDays.forEach((day) => cells.push(`<div class="calendar-weekday">${day}</div>`));
+  for (let index = 0; index < startOffset; index += 1) cells.push(`<div class="calendar-cell muted"></div>`);
+
+  for (let day = 1; day <= lastDay.getDate(); day += 1) {
+    const meetings = state.meetings.filter((meeting) => sameCalendarDay(meeting, year, month, day));
+    cells.push(`
+      <div class="calendar-cell">
+        <strong>${day}</strong>
+        ${meetings.map((meeting) => `<button data-meeting-note="${escapeHtml(meeting.id)}" type="button">${escapeHtml(meeting.name)}</button>`).join("")}
+      </div>
+    `);
+  }
+
+  els.calendarGrid.innerHTML = cells.join("");
+}
+
+function openEventCalendar() {
+  setCalendarToBestMonth();
+  renderEventCalendar();
+  els.calendarDialog.showModal();
+}
+
 function showMeetingView(view) {
   meetingView = view;
   els.meetingDashboard.classList.toggle("is-hidden", view !== "dashboard");
@@ -1383,8 +1433,6 @@ function handleMeetingAction(action) {
   const user = currentUser()?.name || "you";
   const messages = {
     "view-upcoming": "Halloween Event Planning\nFriday, 30 May 2025 at 7:00 PM (BST)\nLocation: Event Room 1\nNotes: Discuss themes, activities, and staff roles.",
-    "event-calendar": "Event Calendar view is ready for the next build. For now, upcoming meetings and recent meetings are shown on this page.",
-    templates: "Templates & Resources\nMeeting notes, event plan checklist, attendance sheet, and task tracker.",
     "attendance-dashboard": "Attendance Dashboard\nLicora 96%, Kai 88%, Maya 83%, Jax 75%, Aria 63%, Ryn 50%, Nova 38%."
   };
 
@@ -1401,6 +1449,11 @@ function handleMeetingAction(action) {
   if (action === "new-meeting") {
     els.meetingForm.reset();
     els.meetingDialog.showModal();
+    return;
+  }
+
+  if (action === "event-calendar") {
+    openEventCalendar();
     return;
   }
 
@@ -1559,6 +1612,33 @@ document.querySelector("[data-close-archive-dialog]").addEventListener("click", 
   els.archiveDialog.close();
 });
 
+document.querySelector("[data-close-calendar-dialog]").addEventListener("click", () => {
+  els.calendarDialog.close();
+});
+
+document.querySelector("[data-calendar-prev]").addEventListener("click", () => {
+  calendarDate = new Date(calendarDate.getFullYear(), calendarDate.getMonth() - 1, 1);
+  renderEventCalendar();
+});
+
+document.querySelector("[data-calendar-next]").addEventListener("click", () => {
+  calendarDate = new Date(calendarDate.getFullYear(), calendarDate.getMonth() + 1, 1);
+  renderEventCalendar();
+});
+
+document.querySelector("[data-calendar-add]").addEventListener("click", () => {
+  els.meetingForm.reset();
+  els.calendarDialog.close();
+  els.meetingDialog.showModal();
+});
+
+els.calendarGrid.addEventListener("click", (event) => {
+  const note = event.target.closest("[data-meeting-note]");
+  if (!note) return;
+  const meeting = meetingById(note.dataset.meetingNote);
+  if (meeting) alert(`${meeting.name}\n${formatMeetingDate(meeting)}\n${meeting.location || "No location set"}\n\n${meeting.notes || "No notes yet."}`);
+});
+
 els.meetingForm.addEventListener("submit", (event) => {
   event.preventDefault();
   const form = Object.fromEntries(new FormData(els.meetingForm).entries());
@@ -1576,6 +1656,7 @@ els.meetingForm.addEventListener("submit", (event) => {
   saveState();
   els.meetingDialog.close();
   renderMeetingDashboard();
+  if (els.calendarDialog.open) renderEventCalendar();
 });
 
 els.taskForm.addEventListener("submit", (event) => {

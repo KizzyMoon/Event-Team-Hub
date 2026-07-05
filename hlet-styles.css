@@ -663,15 +663,10 @@ nav span {
   align-content: start;
 }
 
-.meeting-stats,
-.meeting-footer-grid {
+.meeting-stats {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 12px;
-}
-
-.meeting-footer-grid {
-  grid-template-columns: 1fr;
 }
 
 .meeting-panel {
@@ -850,22 +845,6 @@ nav span {
   font-size: 0.8rem;
 }
 
-.quick-links {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: end;
-  gap: 10px;
-}
-
-.quick-links h3 {
-  flex-basis: 100%;
-}
-
-.quick-links button {
-  min-height: 30px;
-  font-size: 0.78rem;
-}
-
 .attendance-list,
 .archive-list,
 .task-list {
@@ -953,6 +932,10 @@ dialog {
   width: min(860px, calc(100% - 28px));
 }
 
+.calendar-dialog {
+  width: min(940px, calc(100% - 28px));
+}
+
 dialog::backdrop {
   background: rgba(0, 0, 0, 0.72);
 }
@@ -1026,6 +1009,68 @@ dialog::backdrop {
 
 .archive-detail-card li {
   color: var(--text);
+}
+
+.calendar-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.calendar-actions button {
+  min-height: 30px;
+  padding: 5px 10px;
+  font-size: 0.76rem;
+}
+
+.calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.calendar-weekday,
+.calendar-cell {
+  min-height: 88px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: #0d1018;
+}
+
+.calendar-weekday {
+  min-height: 30px;
+  display: grid;
+  place-items: center;
+  color: var(--muted);
+  font-weight: 900;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+}
+
+.calendar-cell {
+  display: grid;
+  align-content: start;
+  gap: 5px;
+  padding: 8px;
+}
+
+.calendar-cell strong {
+  color: var(--text);
+  font-size: 0.82rem;
+}
+
+.calendar-cell button {
+  min-height: 24px;
+  overflow: hidden;
+  padding: 3px 6px;
+  border-color: rgba(195, 122, 255, 0.24);
+  background: rgba(195, 122, 255, 0.13);
+  color: #d8b5ff;
+  font-size: 0.68rem;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .image-drop {
@@ -1120,10 +1165,13 @@ dialog::backdrop {
   .lists,
   .meeting-layout,
   .meeting-stats,
-  .meeting-footer-grid,
   .form-grid-two,
   .upcoming-card {
     grid-template-columns: 1fr;
+  }
+
+  .calendar-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .topbar {

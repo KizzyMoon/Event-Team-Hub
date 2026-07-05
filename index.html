@@ -115,6 +115,7 @@
           <button data-meeting-action="new-meeting" type="button">New Meeting</button>
           <button data-meeting-action="new-task" type="button">New Task</button>
           <button data-meeting-action="log-attendance" type="button">Log Attendance</button>
+          <button data-meeting-action="event-calendar" type="button">Event Calendar</button>
           <button data-meeting-action="team-directory" type="button">Team Directory</button>
         </div>
 
@@ -175,15 +176,6 @@
               </table>
               <button class="wide-button" data-meeting-filter="all" type="button">View All Meetings</button>
             </article>
-
-            <div class="meeting-footer-grid">
-              <article class="meeting-panel quick-links">
-                <h3>Quick Links</h3>
-                <button data-meeting-action="team-directory" type="button">Team Directory</button>
-                <button data-meeting-action="event-calendar" type="button">Event Calendar</button>
-                <button data-meeting-action="templates" type="button">Templates & Resources</button>
-              </article>
-            </div>
           </div>
 
           <aside class="meeting-side">
@@ -327,7 +319,25 @@
       </form>
     </dialog>
 
-    <script src="hlet-data.js?v=meeting-task-counts-20260705"></script>
-    <script src="hlet-app.js?v=meeting-task-counts-20260705"></script>
+    <dialog class="calendar-dialog" data-calendar-dialog>
+      <form method="dialog">
+        <div class="section-head">
+          <div>
+            <h3 data-calendar-title>Event Calendar</h3>
+            <span>Meetings and event dates</span>
+          </div>
+          <div class="calendar-actions">
+            <button data-calendar-prev type="button">Prev</button>
+            <button data-calendar-next type="button">Next</button>
+            <button data-calendar-add type="button">Add Event</button>
+            <button data-close-calendar-dialog type="button">Close</button>
+          </div>
+        </div>
+        <div class="calendar-grid" data-calendar-grid></div>
+      </form>
+    </dialog>
+
+    <script src="hlet-data.js?v=event-calendar-20260705"></script>
+    <script src="hlet-app.js?v=event-calendar-20260705"></script>
   </body>
 </html>
