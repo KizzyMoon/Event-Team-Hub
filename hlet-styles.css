@@ -963,9 +963,26 @@ dialog::backdrop {
 [data-tag-form],
 [data-reward-form],
 [data-meeting-form],
-[data-task-form] {
+[data-task-form],
+[data-message-form] {
   display: grid;
   gap: 12px;
+}
+
+.message-body {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.message-input-row {
+  display: grid;
+  gap: 8px;
+}
+
+.confirm-danger {
+  border-color: var(--red);
+  color: #ffb9bf;
 }
 
 .detail-stack {

@@ -364,7 +364,22 @@
       </form>
     </dialog>
 
-    <script src="hlet-data.js?v=items-meetings-layout-20260705"></script>
-    <script src="hlet-app.js?v=items-meetings-layout-20260705"></script>
+    <dialog data-message-dialog>
+      <form data-message-form>
+        <h3 data-message-title>Notice</h3>
+        <p class="message-body" data-message-body></p>
+        <label class="message-input-row is-hidden" data-message-input-row>
+          <span data-message-input-label>Value</span>
+          <input data-message-input type="text" autocomplete="off" />
+        </label>
+        <div class="dialog-actions">
+          <button data-message-cancel type="button">Cancel</button>
+          <button data-message-ok type="submit">OK</button>
+        </div>
+      </form>
+    </dialog>
+
+    <script src="hlet-data.js?v=site-dialogs-20260705"></script>
+    <script src="hlet-app.js?v=site-dialogs-20260705"></script>
   </body>
 </html>

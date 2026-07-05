@@ -141,6 +141,15 @@ const els = {
   allTasksDialog: document.querySelector("[data-all-tasks-dialog]"),
   allTasksSubtitle: document.querySelector("[data-all-tasks-subtitle]"),
   allTasksContent: document.querySelector("[data-all-tasks-content]"),
+  messageDialog: document.querySelector("[data-message-dialog]"),
+  messageForm: document.querySelector("[data-message-form]"),
+  messageTitle: document.querySelector("[data-message-title]"),
+  messageBody: document.querySelector("[data-message-body]"),
+  messageInputRow: document.querySelector("[data-message-input-row]"),
+  messageInputLabel: document.querySelector("[data-message-input-label]"),
+  messageInput: document.querySelector("[data-message-input]"),
+  messageCancel: document.querySelector("[data-message-cancel]"),
+  messageOk: document.querySelector("[data-message-ok]"),
   settings: document.querySelector("[data-settings]"),
   search: document.querySelector("[data-search]"),
   categories: document.querySelector("[data-categories]"),
@@ -173,6 +182,63 @@ const els = {
   listItems: document.querySelector("[data-list-items]"),
   settingsPanels: document.querySelector("[data-settings-panels]")
 };
+
+function siteDialog({ title = "Notice", body = "", input = false, inputLabel = "Value", value = "", okText = "OK", cancelText = "Cancel", danger = false } = {}) {
+  if (!els.messageDialog) return Promise.resolve(input ? "" : true);
+
+  return new Promise((resolve) => {
+    let settled = false;
+    const finish = (result) => {
+      if (settled) return;
+      settled = true;
+      els.messageForm.removeEventListener("submit", onSubmit);
+      els.messageCancel.removeEventListener("click", onCancel);
+      els.messageDialog.removeEventListener("cancel", onCancel);
+      els.messageDialog.removeEventListener("close", onClose);
+      els.messageOk.classList.remove("confirm-danger");
+      if (els.messageDialog.open) els.messageDialog.close();
+      resolve(result);
+    };
+    const onSubmit = (event) => {
+      event.preventDefault();
+      finish(input ? els.messageInput.value.trim() : true);
+    };
+    const onCancel = (event) => {
+      event.preventDefault();
+      finish(input ? "" : false);
+    };
+    const onClose = () => finish(input ? "" : false);
+
+    els.messageTitle.textContent = title;
+    els.messageBody.textContent = body;
+    els.messageInputLabel.textContent = inputLabel;
+    els.messageInput.value = value;
+    els.messageInputRow.classList.toggle("is-hidden", !input);
+    els.messageCancel.textContent = cancelText || "Cancel";
+    els.messageCancel.classList.toggle("is-hidden", !cancelText);
+    els.messageOk.textContent = okText;
+    els.messageOk.classList.toggle("confirm-danger", danger);
+
+    els.messageForm.addEventListener("submit", onSubmit);
+    els.messageCancel.addEventListener("click", onCancel);
+    els.messageDialog.addEventListener("cancel", onCancel);
+    els.messageDialog.addEventListener("close", onClose);
+    els.messageDialog.showModal();
+    if (input) els.messageInput.focus();
+  });
+}
+
+function siteAlert(body, title = "Notice") {
+  return siteDialog({ title, body, cancelText: "" });
+}
+
+function siteConfirm(body, title = "Confirm") {
+  return siteDialog({ title, body, okText: "Delete", danger: true });
+}
+
+function sitePrompt(body, title = "Input", value = "") {
+  return siteDialog({ title, body, input: true, inputLabel: body, value, okText: "Save" });
+}
 
 function loadState() {
   const saved = localStorage.getItem(STORAGE_KEY);
@@ -322,7 +388,7 @@ function saveState() {
     return true;
   } catch (error) {
     console.error("Could not save Events Team Hub data.", error);
-    alert("This change could not be saved in your browser, so it was not applied. Try refreshing once, then make the change again.");
+    siteAlert("This change could not be saved in your browser, so it was not applied. Try refreshing once, then make the change again.", "Could not save");
     return false;
   }
 }
@@ -416,7 +482,7 @@ async function saveStoredImage(id, imageData) {
     return true;
   } catch (error) {
     console.error("Could not save uploaded image.", error);
-    alert("The image could not be saved in this browser. Try a smaller image.");
+    siteAlert("The image could not be saved in this browser. Try a smaller image.", "Image too large");
     return false;
   }
 }
@@ -780,7 +846,7 @@ function openItemEditor(item) {
 
 async function deleteItemById(itemId) {
   const item = state.items.find((entry) => entry.id === itemId);
-  if (!item || !confirm(`Delete ${item.name}?`)) return false;
+  if (!item || !(await siteConfirm(`Delete ${item.name}?`, "Delete item"))) return false;
 
   const deletedCategory = getUsefulCategory(item);
   const previousItems = state.items;
@@ -1113,7 +1179,7 @@ function pickRewardItems(targetValue, allowCriminal) {
 function createRewardBox(targetValue, allowCriminal) {
   const picked = pickRewardItems(targetValue, allowCriminal);
   if (!picked.items.length) {
-    alert("No priced items are available for that reward box.");
+    siteAlert("No priced items are available for that reward box.", "Reward box");
     return;
   }
 
@@ -1662,7 +1728,7 @@ els.favoriteMenu.addEventListener("click", (event) => {
   renderAll();
 });
 
-els.settingsPanels.addEventListener("click", (event) => {
+els.settingsPanels.addEventListener("click", async (event) => {
   const addButton = event.target.closest("[data-add-settings-tag-button]");
   if (addButton) {
     const form = addButton.closest("[data-add-settings-tag]");
@@ -1674,7 +1740,7 @@ els.settingsPanels.addEventListener("click", (event) => {
   if (deleteButton) {
     const kind = deleteButton.dataset.tagKind;
     const tag = deleteButton.dataset.deleteSettingsTag;
-    if (!confirm(`Delete tag ${tag} from all ${kind}s?`)) return;
+    if (!(await siteConfirm(`Delete tag ${tag} from all ${kind}s?`, "Delete tag"))) return;
     if (!applySettingsTagDelete(kind, tag)) return;
     if (activeCategory === tag) activeCategory = "All";
     renderAll();
@@ -1688,11 +1754,11 @@ els.settingsPanels.addEventListener("submit", (event) => {
   submitSettingsTag(form);
 });
 
-els.meetings.addEventListener("click", (event) => {
+els.meetings.addEventListener("click", async (event) => {
   const removeMember = event.target.closest("[data-remove-team-member]");
   if (removeMember) {
     const name = removeMember.dataset.removeTeamMember;
-    if (!confirm(`Remove ${name} from the team directory?`)) return;
+    if (!(await siteConfirm(`Remove ${name} from the team directory?`, "Remove team member"))) return;
     state.teamMembers = normalizeTeamMembers((state.teamMembers || []).filter((member) => member !== name));
     saveState();
     renderTeamDirectory();
@@ -2098,8 +2164,8 @@ els.itemForm.addEventListener("submit", async (event) => {
   setTab(targetTab);
 });
 
-document.querySelector("[data-new-list]").addEventListener("click", () => {
-  const name = prompt("List name");
+document.querySelector("[data-new-list]").addEventListener("click", async () => {
+  const name = await sitePrompt("List name", "New list");
   if (!name) return;
   const user = currentUser();
   const list = { id: crypto.randomUUID(), name, createdBy: user?.name || "Events Team", itemIds: [] };
@@ -2146,9 +2212,9 @@ document.querySelector("[data-copy-list]").addEventListener("click", async () =>
   await navigator.clipboard.writeText(lines.join("\n"));
 });
 
-document.querySelector("[data-delete-list]").addEventListener("click", () => {
+document.querySelector("[data-delete-list]").addEventListener("click", async () => {
   const list = state.lists.find((entry) => entry.id === activeListId);
-  if (!list || !confirm(`Delete list ${list.name}?`)) return;
+  if (!list || !(await siteConfirm(`Delete list ${list.name}?`, "Delete list"))) return;
   state.lists = state.lists.filter((entry) => entry.id !== list.id);
   activeListId = state.lists[0]?.id || "";
   saveState();
