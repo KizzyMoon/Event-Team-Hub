@@ -97,6 +97,7 @@ const els = {
   itemDialog: document.querySelector("[data-item-dialog]"),
   itemForm: document.querySelector("[data-item-form]"),
   itemTitle: document.querySelector("[data-item-title]"),
+  itemDelete: document.querySelector("[data-delete-current-item]"),
   customCategory: document.querySelector("[data-custom-category]"),
   imageDrop: document.querySelector("[data-image-drop]"),
   imageFileName: document.querySelector("[data-image-file-name]"),
@@ -611,6 +612,7 @@ function openAddItemDialog() {
   els.itemTitle.textContent = "Add custom item";
   els.itemForm.reset();
   els.itemForm.elements.kind.disabled = false;
+  els.itemDelete.classList.add("is-hidden");
   resetImageUploadLabel();
   renderCustomCategorySelect();
   els.itemDialog.showModal();
@@ -628,9 +630,48 @@ function openItemEditor(item) {
   els.itemForm.elements.kind.disabled = false;
   els.itemForm.elements.image.value = currentImage && !String(currentImage).startsWith("data:") ? currentImage : "";
   els.itemForm.elements.notes.value = item.notes || "";
+  els.itemDelete.classList.remove("is-hidden");
   resetImageUploadLabel(currentImage ? "Current image saved. Drop, paste, or choose to replace it." : undefined);
   renderCustomCategorySelect(getUsefulCategory(item));
   els.itemDialog.showModal();
+}
+
+async function deleteItemById(itemId) {
+  const item = state.items.find((entry) => entry.id === itemId);
+  if (!item || !confirm(`Delete ${item.name}?`)) return false;
+
+  const deletedCategory = getUsefulCategory(item);
+  const previousItems = state.items;
+  const previousCustomItems = state.customItems || [];
+  const previousOverrides = { ...(state.itemOverrides || {}) };
+  const previousDeletedItemIds = [...(state.deletedItemIds || [])];
+  const previousLists = state.lists.map((list) => ({ ...list, itemIds: [...list.itemIds] }));
+  const previousFavoritesByUser = Object.fromEntries(Object.entries(state.favoritesByUser || {}).map(([key, ids]) => [key, [...ids]]));
+
+  state.deletedItemIds = state.deletedItemIds || [];
+  if (!state.deletedItemIds.includes(item.id)) state.deletedItemIds.push(item.id);
+  state.items = state.items.filter((entry) => entry.id !== item.id);
+  state.customItems = (state.customItems || []).filter((entry) => entry.id !== item.id);
+  if (state.itemOverrides) delete state.itemOverrides[item.id];
+  state.lists.forEach((list) => list.itemIds = list.itemIds.filter((id) => id !== item.id));
+  Object.values(state.favoritesByUser || {}).forEach((ids) => {
+    const favoriteIndex = ids.indexOf(item.id);
+    if (favoriteIndex !== -1) ids.splice(favoriteIndex, 1);
+  });
+
+  if (!saveState()) {
+    state.items = previousItems;
+    state.customItems = previousCustomItems;
+    state.itemOverrides = previousOverrides;
+    state.deletedItemIds = previousDeletedItemIds;
+    state.lists = previousLists;
+    state.favoritesByUser = previousFavoritesByUser;
+    return false;
+  }
+
+  await deleteStoredImage(item.id);
+  renderAll({ keepMissingCategory: activeCategory === deletedCategory });
+  return true;
 }
 
 function filteredItems() {
@@ -724,7 +765,6 @@ function renderCard(item, options = {}) {
         <button class="flag-button ${item.blacklisted ? "active" : ""}" data-toggle-blacklist="${escapeHtml(item.id)}" type="button" aria-label="${item.blacklisted ? "Remove blacklist" : "Mark blacklisted"}">⚑</button>
         ${editTagsButton}
         ${options.removeFromList ? "" : listButton}
-        <button class="delete-corner" data-delete-item="${escapeHtml(item.id)}" type="button" aria-label="Delete ${escapeHtml(item.name)}">x</button>
       </div>
     </article>
   `;
@@ -1114,37 +1154,7 @@ document.addEventListener("click", async (event) => {
 
   const deleteItem = event.target.closest("[data-delete-item]");
   if (deleteItem) {
-    const item = state.items.find((entry) => entry.id === deleteItem.dataset.deleteItem);
-    if (item && confirm(`Delete ${item.name}?`)) {
-      const deletedCategory = getUsefulCategory(item);
-      const previousItems = state.items;
-      const previousCustomItems = state.customItems || [];
-      const previousOverrides = { ...(state.itemOverrides || {}) };
-      const previousDeletedItemIds = [...(state.deletedItemIds || [])];
-      const previousLists = state.lists.map((list) => ({ ...list, itemIds: [...list.itemIds] }));
-      const previousFavoritesByUser = Object.fromEntries(Object.entries(state.favoritesByUser || {}).map(([key, ids]) => [key, [...ids]]));
-      state.deletedItemIds = state.deletedItemIds || [];
-      if (!state.deletedItemIds.includes(item.id)) state.deletedItemIds.push(item.id);
-      state.items = state.items.filter((entry) => entry.id !== item.id);
-      state.customItems = (state.customItems || []).filter((entry) => entry.id !== item.id);
-      if (state.itemOverrides) delete state.itemOverrides[item.id];
-      state.lists.forEach((list) => list.itemIds = list.itemIds.filter((id) => id !== item.id));
-      Object.values(state.favoritesByUser || {}).forEach((ids) => {
-        const favoriteIndex = ids.indexOf(item.id);
-        if (favoriteIndex !== -1) ids.splice(favoriteIndex, 1);
-      });
-      if (!saveState()) {
-        state.items = previousItems;
-        state.customItems = previousCustomItems;
-        state.itemOverrides = previousOverrides;
-        state.deletedItemIds = previousDeletedItemIds;
-        state.lists = previousLists;
-        state.favoritesByUser = previousFavoritesByUser;
-        return;
-      }
-      await deleteStoredImage(item.id);
-      renderAll({ keepMissingCategory: activeCategory === deletedCategory });
-    }
+    await deleteItemById(deleteItem.dataset.deleteItem);
     return;
   }
 
@@ -1179,6 +1189,14 @@ document.addEventListener("click", async (event) => {
 
 document.querySelector("[data-open-add]").addEventListener("click", openAddItemDialog);
 document.querySelector("[data-close-dialog]").addEventListener("click", () => els.itemDialog.close());
+els.itemDelete.addEventListener("click", async () => {
+  if (!editingItemId) return;
+  const deleted = await deleteItemById(editingItemId);
+  if (!deleted) return;
+  editingItemId = "";
+  pendingImageData = "";
+  els.itemDialog.close();
+});
 els.itemForm.elements.kind.addEventListener("change", () => renderCustomCategorySelect());
 els.itemForm.elements.imageFile.addEventListener("change", async () => {
   await attachImageFile(els.itemForm.elements.imageFile.files?.[0], "Uploaded");

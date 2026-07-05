@@ -341,7 +341,7 @@ nav span {
   right: 10px;
   bottom: 8px;
   display: grid;
-  grid-template-columns: 24px minmax(0, 1fr) minmax(0, 1fr) 22px;
+  grid-template-columns: 24px minmax(0, 1fr) minmax(0, 1fr);
   gap: 8px;
   align-items: center;
 }
@@ -369,23 +369,6 @@ nav span {
   height: 24px;
   padding: 3px 8px;
   font-size: 0.72rem;
-}
-
-.delete-corner {
-  display: grid;
-  place-items: center;
-  width: 22px;
-  height: 22px;
-  min-height: 22px;
-  padding: 0;
-  border-radius: 999px;
-  font-size: 0.86rem;
-  line-height: 1;
-}
-
-.delete-corner {
-  border-color: rgba(255, 92, 103, 0.7);
-  color: #ffb9bf;
 }
 
 .thumb {
@@ -676,6 +659,10 @@ dialog::backdrop {
   display: flex;
   justify-content: flex-end;
   gap: 8px;
+}
+
+.dialog-actions .danger {
+  margin-right: auto;
 }
 
 @media (max-width: 900px) {
