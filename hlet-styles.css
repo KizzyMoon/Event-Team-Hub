@@ -949,6 +949,10 @@ dialog {
   color: var(--text);
 }
 
+.archive-dialog {
+  width: min(860px, calc(100% - 28px));
+}
+
 dialog::backdrop {
   background: rgba(0, 0, 0, 0.72);
 }
@@ -966,6 +970,62 @@ dialog::backdrop {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 10px;
+}
+
+.archive-detail-list {
+  display: grid;
+  gap: 10px;
+  max-height: min(620px, 70vh);
+  overflow: auto;
+  padding-right: 4px;
+}
+
+.archive-detail-card {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: #0d1018;
+}
+
+.archive-detail-card h4,
+.archive-detail-card p {
+  margin: 0;
+}
+
+.archive-detail-card > div:first-child {
+  display: grid;
+  gap: 4px;
+}
+
+.archive-detail-card span,
+.archive-detail-card small,
+.archive-detail-card p {
+  color: var(--muted);
+}
+
+.archive-detail-card h4 {
+  color: var(--text);
+  font-size: 1rem;
+}
+
+.archive-detail-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.archive-detail-card ul {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding-left: 18px;
+}
+
+.archive-detail-card li {
+  color: var(--text);
 }
 
 .image-drop {

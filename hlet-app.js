@@ -119,6 +119,10 @@ const els = {
   upcomingMeeting: document.querySelector("[data-upcoming-meeting]"),
   recentMeetings: document.querySelector("[data-recent-meetings]"),
   taskList: document.querySelector("[data-task-list]"),
+  archiveDialog: document.querySelector("[data-archive-dialog]"),
+  archiveTitle: document.querySelector("[data-archive-title]"),
+  archiveSubtitle: document.querySelector("[data-archive-subtitle]"),
+  archiveContent: document.querySelector("[data-archive-content]"),
   settings: document.querySelector("[data-settings]"),
   search: document.querySelector("[data-search]"),
   categories: document.querySelector("[data-categories]"),
@@ -1240,6 +1244,10 @@ function meetingById(id) {
   return (state.meetings || []).find((meeting) => meeting.id === id);
 }
 
+function meetingYear(meeting) {
+  return String(meeting.date || "").slice(0, 4) || "No year";
+}
+
 function taskPill(status, complete = false) {
   if (complete) return `<span class="pill good">Done</span>`;
   if (status === "overdue") return `<span class="pill bad">Overdue</span>`;
@@ -1307,6 +1315,42 @@ function renderMeetingDashboard() {
   renderMeetingSelect();
 }
 
+function openMeetingArchive(year = "") {
+  state.meetings = normalizeMeetings(state.meetings || DEFAULT_MEETINGS);
+  state.tasks = normalizeTasks(state.tasks || DEFAULT_TASKS);
+  const archivedMeetings = state.meetings
+    .filter((meeting) => meeting.status !== "upcoming")
+    .filter((meeting) => !year || meetingYear(meeting) === year);
+
+  els.archiveTitle.textContent = year ? `${year} Meeting Archive` : "Meeting Archive";
+  els.archiveSubtitle.textContent = `${archivedMeetings.length} previous meeting${archivedMeetings.length === 1 ? "" : "s"}`;
+  els.archiveContent.innerHTML = archivedMeetings.length ? archivedMeetings.map((meeting) => {
+    const linkedTasks = state.tasks.filter((task) => task.meetingId === meeting.id);
+    const doneTasks = linkedTasks.filter((task) => task.complete).length;
+    const statusClass = meeting.status === "missed" ? "bad" : meeting.status === "unavailable" ? "warn" : "good";
+    return `
+      <article class="archive-detail-card">
+        <div>
+          <h4>${escapeHtml(meeting.name)}</h4>
+          <span>${escapeHtml(formatMeetingDate(meeting))}</span>
+          <span>${escapeHtml(meeting.location || "No location set")}</span>
+        </div>
+        <p>${escapeHtml(meeting.notes || "No notes saved.")}</p>
+        <div class="archive-detail-meta">
+          <span class="pill ${statusClass}">${escapeHtml(meeting.status)}</span>
+          <span>${doneTasks} / ${linkedTasks.length} tasks complete</span>
+        </div>
+        ${linkedTasks.length ? `
+          <ul>
+            ${linkedTasks.map((task) => `<li>${escapeHtml(task.name)} ${taskPill(task.status, task.complete)}</li>`).join("")}
+          </ul>
+        ` : `<small class="muted">No linked tasks.</small>`}
+      </article>
+    `;
+  }).join("") : `<p class="muted">No previous meetings found for this archive.</p>`;
+  els.archiveDialog.showModal();
+}
+
 function showMeetingView(view) {
   meetingView = view;
   els.meetingDashboard.classList.toggle("is-hidden", view !== "dashboard");
@@ -1332,8 +1376,7 @@ function handleMeetingAction(action) {
     "view-upcoming": "Halloween Event Planning\nFriday, 30 May 2025 at 7:00 PM (BST)\nLocation: Event Room 1\nNotes: Discuss themes, activities, and staff roles.",
     "event-calendar": "Event Calendar view is ready for the next build. For now, upcoming meetings and recent meetings are shown on this page.",
     templates: "Templates & Resources\nMeeting notes, event plan checklist, attendance sheet, and task tracker.",
-    "attendance-dashboard": "Attendance Dashboard\nLicora 96%, Kai 88%, Maya 83%, Jax 75%, Aria 63%, Ryn 50%, Nova 38%.",
-    "full-archive": "Meeting Archive\n2025: 12 meetings\n2024: 18 meetings\n2023: 9 meetings"
+    "attendance-dashboard": "Attendance Dashboard\nLicora 96%, Kai 88%, Maya 83%, Jax 75%, Aria 63%, Ryn 50%, Nova 38%."
   };
 
   if (action === "team-directory") {
@@ -1363,6 +1406,11 @@ function handleMeetingAction(action) {
     const status = prompt("Attendance status", "Attended");
     if (!status) return;
     alert(`Attendance logged for ${user}: ${status}`);
+    return;
+  }
+
+  if (action === "full-archive") {
+    openMeetingArchive();
     return;
   }
 
@@ -1476,7 +1524,7 @@ els.meetings.addEventListener("click", (event) => {
 
   const archive = event.target.closest("[data-meeting-archive]");
   if (archive) {
-    alert(`${archive.dataset.meetingArchive} archive selected.`);
+    openMeetingArchive(archive.dataset.meetingArchive);
   }
 });
 
@@ -1496,6 +1544,10 @@ document.querySelector("[data-close-meeting-dialog]").addEventListener("click", 
 
 document.querySelector("[data-close-task-dialog]").addEventListener("click", () => {
   els.taskDialog.close();
+});
+
+document.querySelector("[data-close-archive-dialog]").addEventListener("click", () => {
+  els.archiveDialog.close();
 });
 
 els.meetingForm.addEventListener("submit", (event) => {

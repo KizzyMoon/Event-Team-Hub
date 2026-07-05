@@ -314,7 +314,20 @@
       </form>
     </dialog>
 
-    <script src="hlet-data.js?v=meeting-task-dialogs-20260705"></script>
-    <script src="hlet-app.js?v=meeting-task-dialogs-20260705"></script>
+    <dialog class="archive-dialog" data-archive-dialog>
+      <form method="dialog">
+        <div class="section-head">
+          <div>
+            <h3 data-archive-title>Meeting Archive</h3>
+            <span data-archive-subtitle>Previous meetings</span>
+          </div>
+          <button data-close-archive-dialog type="button">Close</button>
+        </div>
+        <div class="archive-detail-list" data-archive-content></div>
+      </form>
+    </dialog>
+
+    <script src="hlet-data.js?v=meeting-archive-20260705"></script>
+    <script src="hlet-app.js?v=meeting-archive-20260705"></script>
   </body>
 </html>
