@@ -119,6 +119,8 @@ const els = {
   upcomingMeeting: document.querySelector("[data-upcoming-meeting]"),
   recentMeetings: document.querySelector("[data-recent-meetings]"),
   taskList: document.querySelector("[data-task-list]"),
+  taskProgressCount: document.querySelector("[data-task-progress-count]"),
+  taskOverdueCount: document.querySelector("[data-task-overdue-count]"),
   archiveDialog: document.querySelector("[data-archive-dialog]"),
   archiveTitle: document.querySelector("[data-archive-title]"),
   archiveSubtitle: document.querySelector("[data-archive-subtitle]"),
@@ -1266,6 +1268,13 @@ function renderMeetingDashboard() {
   state.meetings = normalizeMeetings(state.meetings || DEFAULT_MEETINGS);
   state.tasks = normalizeTasks(state.tasks || DEFAULT_TASKS);
   const upcoming = state.meetings.find((meeting) => meeting.status === "upcoming") || state.meetings[0];
+  const activeTasks = state.tasks.filter((task) => !task.complete);
+  const overdueTasks = activeTasks.filter((task) => task.status === "overdue");
+
+  els.taskProgressCount.textContent = activeTasks.length.toLocaleString();
+  els.taskOverdueCount.textContent = `${overdueTasks.length.toLocaleString()} overdue`;
+  els.taskOverdueCount.classList.toggle("danger-text", overdueTasks.length > 0);
+  els.taskOverdueCount.classList.toggle("muted", overdueTasks.length === 0);
 
   els.upcomingMeeting.innerHTML = upcoming ? `
     <div class="upcoming-card">
