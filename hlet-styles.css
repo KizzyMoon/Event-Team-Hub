@@ -980,6 +980,54 @@ dialog::backdrop {
   gap: 8px;
 }
 
+.attendance-editor {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  padding: 10px;
+}
+
+.attendance-editor legend {
+  padding: 0 6px;
+  color: var(--muted);
+}
+
+.attendance-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(140px, 190px);
+  gap: 10px;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.attendance-row span {
+  font-weight: 800;
+}
+
+.attendance-detail-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.attendance-detail-list span {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  padding: 7px 9px;
+  background: rgba(255,255,255,0.03);
+}
+
+.attendance-detail-list em {
+  color: var(--muted);
+  font-style: normal;
+}
+
 .confirm-danger {
   border-color: var(--red);
   color: #ffb9bf;

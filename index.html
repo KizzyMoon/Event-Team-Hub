@@ -275,8 +275,11 @@
           <label>Date<input name="date" type="date" required /></label>
           <label>Time<input name="time" type="time" required /></label>
         </div>
-        <label>Location<input name="location" placeholder="Event Room 1" /></label>
         <label>Notes<textarea name="notes" rows="3"></textarea></label>
+        <fieldset class="attendance-editor">
+          <legend>Attendance</legend>
+          <div data-meeting-attendance-editor></div>
+        </fieldset>
         <div class="dialog-actions">
           <button data-close-meeting-dialog type="button">Cancel</button>
           <button type="submit">Save</button>
@@ -394,7 +397,7 @@
       </form>
     </dialog>
 
-    <script src="hlet-data.js?v=meeting-tools-20260705"></script>
-    <script src="hlet-app.js?v=meeting-tools-20260705"></script>
+    <script src="hlet-data.js?v=meeting-attendance-20260705"></script>
+    <script src="hlet-app.js?v=meeting-attendance-20260705"></script>
   </body>
 </html>

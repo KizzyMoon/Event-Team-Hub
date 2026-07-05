@@ -5,12 +5,12 @@ const PAGE_SIZE = 120;
 const EMPTY_TAG_STATE = { object: [], item: [], vehicle: [], weapon: [] };
 const DEFAULT_TEAM_MEMBERS = ["Licora", "Kai", "Maya", "Jax", "Aria", "Ryn", "Nova"];
 const DEFAULT_MEETINGS = [
-  { id: "meeting:halloween", name: "Halloween Event Planning", date: "2025-05-30", time: "19:00", location: "Event Room 1", notes: "Discuss themes, activities, and staff roles.", status: "upcoming" },
-  { id: "meeting:summer-kickoff", name: "Summer Event Kickoff", date: "2025-05-18", time: "19:00", location: "Event Room 1", notes: "", status: "attended" },
-  { id: "meeting:event-sync", name: "Event Team Sync", date: "2025-05-11", time: "19:00", location: "Event Room 1", notes: "", status: "attended" },
-  { id: "meeting:charity", name: "Charity Event Planning", date: "2025-05-04", time: "19:00", location: "Event Room 1", notes: "", status: "missed" },
-  { id: "meeting:easter", name: "Easter Event Debrief", date: "2025-04-27", time: "19:00", location: "Event Room 1", notes: "", status: "attended" },
-  { id: "meeting:brainstorm", name: "Event Brainstorm", date: "2025-04-20", time: "19:00", location: "Event Room 1", notes: "", status: "unavailable" }
+  { id: "meeting:halloween", name: "Halloween Event Planning", date: "2025-05-30", time: "19:00", notes: "Discuss themes, activities, and staff roles.", status: "upcoming" },
+  { id: "meeting:summer-kickoff", name: "Summer Event Kickoff", date: "2025-05-18", time: "19:00", notes: "", status: "attended" },
+  { id: "meeting:event-sync", name: "Event Team Sync", date: "2025-05-11", time: "19:00", notes: "", status: "attended" },
+  { id: "meeting:charity", name: "Charity Event Planning", date: "2025-05-04", time: "19:00", notes: "", status: "missed" },
+  { id: "meeting:easter", name: "Easter Event Debrief", date: "2025-04-27", time: "19:00", notes: "", status: "attended" },
+  { id: "meeting:brainstorm", name: "Event Brainstorm", date: "2025-04-20", time: "19:00", notes: "", status: "unavailable" }
 ];
 const DEFAULT_TASKS = [
   { id: "task:venue", name: "Book Halloween venue", description: "", dueDate: "2025-05-25", meetingId: "meeting:halloween", owner: "mine", status: "overdue", complete: false },
@@ -119,6 +119,7 @@ const els = {
   teamMemberCount: document.querySelector("[data-team-member-count]"),
   meetingForm: document.querySelector("[data-meeting-form]"),
   meetingFormTitle: document.querySelector("[data-meeting-form-title]"),
+  meetingAttendanceEditor: document.querySelector("[data-meeting-attendance-editor]"),
   meetingDialog: document.querySelector("[data-meeting-dialog]"),
   taskForm: document.querySelector("[data-task-form]"),
   taskFormTitle: document.querySelector("[data-task-form-title]"),
@@ -303,7 +304,6 @@ function normalizeMeetings(meetings = []) {
       name: String(meeting.name || "").trim(),
       date: meeting.date || "",
       time: meeting.time || "",
-      location: meeting.location || "",
       notes: meeting.notes || "",
       status: meeting.status || "upcoming",
       type: meeting.type || "meeting",
@@ -1493,6 +1493,30 @@ function overallAttendance() {
   return Math.round(total / members.length);
 }
 
+function meetingAttendanceSummary(meeting) {
+  const entries = Object.values(meeting.attendance || {});
+  const attended = entries.filter((value) => value === "attended").length;
+  const missed = entries.filter((value) => value === "missed").length;
+  const unavailable = entries.filter((value) => value === "unavailable").length;
+  return { attended, missed, unavailable, total: entries.length };
+}
+
+function meetingAttendanceDetail(meeting) {
+  const members = normalizeTeamMembers(state.teamMembers || []);
+  if (!members.length) return `<p><strong>Attendance:</strong> No team members.</p>`;
+  return `
+    <div>
+      <strong>Attendance:</strong>
+      <div class="attendance-detail-list">
+        ${members.map((name) => {
+          const status = meeting.attendance?.[name] || "not marked";
+          return `<span>${escapeHtml(name)} <em>${escapeHtml(status === "attended" ? "Turned up" : status === "missed" ? "Did not turn up" : status === "unavailable" ? "Unavailable" : "Not marked")}</em></span>`;
+        }).join("")}
+      </div>
+    </div>
+  `;
+}
+
 function renderAttendanceOverview() {
   const members = normalizeTeamMembers(state.teamMembers || []);
   els.attendanceList.innerHTML = members.length ? members.map((name) => {
@@ -1508,6 +1532,34 @@ function renderMeetingSelect() {
   )).join("")}`;
 }
 
+function renderMeetingAttendanceEditor(attendance = {}) {
+  const members = normalizeTeamMembers(state.teamMembers || []);
+  els.meetingAttendanceEditor.innerHTML = members.length ? members.map((name) => {
+    const value = attendance[name] || "";
+    return `
+      <label class="attendance-row">
+        <span>${escapeHtml(name)}</span>
+        <select name="attendance:${escapeHtml(name)}">
+          <option value="" ${value ? "" : "selected"}>Not marked</option>
+          <option value="attended" ${value === "attended" ? "selected" : ""}>Turned up</option>
+          <option value="missed" ${value === "missed" ? "selected" : ""}>Did not turn up</option>
+          <option value="unavailable" ${value === "unavailable" ? "selected" : ""}>Unavailable</option>
+        </select>
+      </label>
+    `;
+  }).join("") : `<p class="muted">Add team members first to track attendance.</p>`;
+}
+
+function attendanceFromMeetingForm() {
+  const members = normalizeTeamMembers(state.teamMembers || []);
+  const attendance = {};
+  members.forEach((name) => {
+    const value = els.meetingForm.elements[`attendance:${name}`]?.value || "";
+    if (value) attendance[name] = value;
+  });
+  return attendance;
+}
+
 function openMeetingForm(meeting = null, type = "meeting") {
   editingMeetingId = meeting?.id || "";
   editingMeetingType = meeting?.type || type;
@@ -1516,8 +1568,8 @@ function openMeetingForm(meeting = null, type = "meeting") {
   els.meetingForm.elements.name.value = meeting?.name || "";
   els.meetingForm.elements.date.value = meeting?.date || "";
   els.meetingForm.elements.time.value = meeting?.time || "";
-  els.meetingForm.elements.location.value = meeting?.location || "";
   els.meetingForm.elements.notes.value = meeting?.notes || "";
+  renderMeetingAttendanceEditor(meeting?.attendance || {});
   els.meetingDialog.showModal();
 }
 
@@ -1564,7 +1616,6 @@ function renderMeetingDashboard() {
       <div>
         <h4>${escapeHtml(upcoming.name)}</h4>
         <p>${escapeHtml(formatMeetingDate(upcoming))}</p>
-        <p>${escapeHtml(upcoming.location || "No location set")}</p>
         <small>${escapeHtml(upcoming.notes || "No notes yet.")}</small>
       </div>
       <div class="meeting-status">
@@ -1579,12 +1630,13 @@ function renderMeetingDashboard() {
     const linkedTasks = state.tasks.filter((task) => task.meetingId === meeting.id);
     const doneTasks = linkedTasks.filter((task) => task.complete).length;
     const statusClass = meeting.status === "missed" ? "bad" : meeting.status === "unavailable" ? "warn" : "good";
+    const attendance = meetingAttendanceSummary(meeting);
     return `
       <tr data-meeting-status="${escapeHtml(meeting.status)}">
         <td>${escapeHtml(meeting.name)}</td>
         <td>${escapeHtml(formatMeetingDate(meeting))}</td>
         <td><span class="pill ${statusClass}">${escapeHtml(meeting.status === "upcoming" ? "Upcoming" : meeting.status)}</span></td>
-        <td>${escapeHtml(meeting.attendance ? `${Object.keys(meeting.attendance).length} logged` : "-")}</td>
+        <td>${attendance.total ? `${attendance.attended} up / ${attendance.missed} missed / ${attendance.unavailable} unavailable` : "-"}</td>
         <td>${doneTasks} / ${linkedTasks.length}</td>
         <td>
           <button data-meeting-note="${escapeHtml(meeting.id)}" type="button">View</button>
@@ -1628,7 +1680,6 @@ function openMeetingArchive(year = "") {
         <div>
           <h4>${escapeHtml(meeting.name)}</h4>
           <span>${escapeHtml(formatMeetingDate(meeting))}</span>
-          <span>${escapeHtml(meeting.location || "No location set")}</span>
         </div>
         <p>${escapeHtml(meeting.notes || "No notes saved.")}</p>
         <div class="archive-detail-meta">
@@ -1676,7 +1727,6 @@ function meetingDetailCard(meeting) {
       <div>
         <h4><button class="task-link" data-meeting-note="${escapeHtml(meeting.id)}" type="button">${escapeHtml(meeting.name)}</button></h4>
         <span>${escapeHtml(formatMeetingDate(meeting))}</span>
-        <span>${escapeHtml(meeting.location || "No location set")}</span>
       </div>
       <p>${escapeHtml(meeting.notes || "No notes saved.")}</p>
       <div class="archive-detail-meta">
@@ -1707,9 +1757,9 @@ function openMeetingDetail(id) {
   els.meetingDetailTitle.textContent = meeting.name;
   els.meetingDetailContent.innerHTML = `
     <p><strong>Date:</strong> ${escapeHtml(formatMeetingDate(meeting))}</p>
-    <p><strong>Location:</strong> ${escapeHtml(meeting.location || "No location set")}</p>
     <p><strong>Notes:</strong> ${escapeHtml(meeting.notes || "No notes yet.")}</p>
     <p><strong>Linked tasks:</strong> ${linkedTasks.length}</p>
+    ${meetingAttendanceDetail(meeting)}
   `;
   els.meetingDetailDialog.showModal();
 }
@@ -2162,10 +2212,10 @@ els.meetingForm.addEventListener("submit", (event) => {
     name: String(form.name || "").trim(),
     date: form.date || "",
     time: form.time || "",
-    location: form.location || "",
     notes: form.notes || "",
     status: form.date && form.date < todayDateString() ? "attended" : "upcoming",
-    type: editingMeetingType
+    type: editingMeetingType,
+    attendance: attendanceFromMeetingForm()
   };
   if (!meeting.name) return;
   state.meetings = editingMeetingId
