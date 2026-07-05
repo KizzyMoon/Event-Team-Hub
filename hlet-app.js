@@ -2,6 +2,29 @@ const PASSWORD = "HLET2025";
 const STORAGE_KEY = "hlet-hub-v1";
 const SESSION_KEY = "hlet-session-v1";
 const PAGE_SIZE = 120;
+const EMPTY_TAG_STATE = { object: [], item: [], vehicle: [], weapon: [] };
+const ITEM_CATEGORIES = [
+  "Ammo",
+  "Blueprints",
+  "Drinks",
+  "Drugs",
+  "Event & Misc",
+  "Fishing",
+  "Food",
+  "Heist",
+  "Loot Containers",
+  "Lumber",
+  "Medical",
+  "Mining",
+  "Pawn Values",
+  "Property",
+  "Shrooms",
+  "Tools",
+  "Valuables",
+  "Weapon Mods",
+  "Weapon Parts",
+  "Weed"
+];
 const WEAPON_CATEGORIES = ["HEAVY", "SMGS", "THROWABLES", "MELEE", "OTHER", "PISTOLS", "SHOTGUNS", "RIFLES"];
 const VEHICLE_CATEGORIES = [
   "BCSO",
@@ -102,8 +125,8 @@ function loadState() {
       parsed.deletedItemIds = parsed.deletedItemIds || [];
       parsed.customItems = parsed.customItems || (parsed.items || []).filter((item) => String(item.id || "").startsWith("custom:"));
       parsed.itemOverrides = parsed.itemOverrides || {};
-      parsed.customTags = parsed.customTags || { object: [], vehicle: [], weapon: [] };
-      parsed.deletedTags = parsed.deletedTags || { object: [], vehicle: [], weapon: [] };
+      parsed.customTags = { ...EMPTY_TAG_STATE, ...(parsed.customTags || {}) };
+      parsed.deletedTags = { ...EMPTY_TAG_STATE, ...(parsed.deletedTags || {}) };
       return mergeSeedItems(parsed);
     } catch (error) {
       console.error("Could not read saved Events Team Hub data.", error);
@@ -114,8 +137,8 @@ function loadState() {
     items: seed.items || [],
     customItems: [],
     itemOverrides: {},
-    customTags: { object: [], vehicle: [], weapon: [] },
-    deletedTags: { object: [], vehicle: [], weapon: [] },
+    customTags: { ...EMPTY_TAG_STATE },
+    deletedTags: { ...EMPTY_TAG_STATE },
     favoritesByUser: {},
     deletedItemIds: [],
     lists: [
@@ -176,8 +199,8 @@ function saveState() {
   const savedState = {
     customItems: (state.customItems || []).map(compactSavedItem),
     itemOverrides: compactSavedOverrides(state.itemOverrides || {}),
-    customTags: state.customTags || { object: [], vehicle: [], weapon: [] },
-    deletedTags: state.deletedTags || { object: [], vehicle: [], weapon: [] },
+    customTags: { ...EMPTY_TAG_STATE, ...(state.customTags || {}) },
+    deletedTags: { ...EMPTY_TAG_STATE, ...(state.deletedTags || {}) },
     favoritesByUser: state.favoritesByUser || {},
     deletedItemIds: state.deletedItemIds || [],
     lists: state.lists || []
@@ -297,7 +320,7 @@ function imageSourceFor(item) {
 }
 
 function itemType(tab = activeTab) {
-  return { objects: "object", vehicles: "vehicle", weapons: "weapon" }[tab];
+  return { objects: "object", items: "item", vehicles: "vehicle", weapons: "weapon" }[tab];
 }
 
 function sortText(a, b) {
@@ -402,13 +425,13 @@ function editableTagsFor(item) {
 }
 
 function customTagsFor(kind) {
-  state.customTags = state.customTags || { object: [], vehicle: [], weapon: [] };
+  state.customTags = { ...EMPTY_TAG_STATE, ...(state.customTags || {}) };
   state.customTags[kind] = state.customTags[kind] || [];
   return state.customTags[kind];
 }
 
 function deletedTagsFor(kind) {
-  state.deletedTags = state.deletedTags || { object: [], vehicle: [], weapon: [] };
+  state.deletedTags = { ...EMPTY_TAG_STATE, ...(state.deletedTags || {}) };
   state.deletedTags[kind] = state.deletedTags[kind] || [];
   return state.deletedTags[kind];
 }
@@ -499,20 +522,22 @@ function categoriesFor(type) {
   if (activeTab === "favorites") {
     return [
       ["Objects", favoriteItems().filter((item) => item.kind === "object").length],
+      ["Items", favoriteItems().filter((item) => item.kind === "item").length],
       ["Vehicles", favoriteItems().filter((item) => item.kind === "vehicle").length],
       ["Weapons", favoriteItems().filter((item) => item.kind === "weapon").length]
     ].filter(([, count]) => count > 0);
   }
 
-  if (type === "weapon") {
-    const base = WEAPON_CATEGORIES
-      .map((category) => [category, state.items.filter((item) => item.kind === "weapon" && getWeaponCategory(item) === category).length])
-      .filter(([, count]) => count > 0)
-      .sort(([a], [b]) => sortText(displayWeaponCategory(a), displayWeaponCategory(b)));
-    customTagsFor("weapon").forEach((tag) => {
+  if (type === "item" || type === "weapon") {
+    const baseCategories = type === "item" ? ITEM_CATEGORIES : WEAPON_CATEGORIES;
+    const base = baseCategories
+      .map((category) => [category, state.items.filter((item) => item.kind === type && getUsefulCategory(item) === category).length])
+      .filter(([, count]) => type === "item" || count > 0)
+      .sort(([a], [b]) => sortText(displayCategory(type, a), displayCategory(type, b)));
+    customTagsFor(type).forEach((tag) => {
       if (!base.some(([category]) => category.toLowerCase() === tag.toLowerCase())) base.push([tag, 0]);
     });
-    return base.sort(([a], [b]) => sortText(displayWeaponCategory(a), displayWeaponCategory(b)));
+    return base.sort(([a], [b]) => sortText(displayCategory(type, a), displayCategory(type, b)));
   }
 
   const counts = new Map();
@@ -634,7 +659,7 @@ function renderCategories(options = {}) {
     activeCategory = "All";
   }
 
-  const chipMode = activeTab === "weapons";
+  const chipMode = activeTab === "items" || activeTab === "weapons";
   els.categories.classList.toggle("is-hidden", chipMode);
   els.categoryChips.classList.toggle("is-hidden", !chipMode);
 
@@ -642,7 +667,7 @@ function renderCategories(options = {}) {
     els.categoryChips.innerHTML = [
       `<button class="${activeCategory === "All" ? "active" : ""}" data-category-chip="All" type="button">All</button>`,
       ...categories.map(([category]) => {
-        return `<button class="${activeCategory === category ? "active" : ""}" data-category-chip="${escapeHtml(category)}" type="button">${escapeHtml(displayWeaponCategory(category))}</button>`;
+        return `<button class="${activeCategory === category ? "active" : ""}" data-category-chip="${escapeHtml(category)}" type="button">${escapeHtml(displayCategory(type, category))}</button>`;
       })
     ].join("");
     return;
@@ -673,11 +698,15 @@ function displayWeaponCategory(category) {
   }[category] || category;
 }
 
+function displayCategory(kind, category) {
+  return kind === "weapon" ? displayWeaponCategory(category) : category;
+}
+
 function renderCard(item, options = {}) {
   const listButton = state.lists.length
     ? `<button data-add-to-list="${escapeHtml(item.id)}" type="button">+ List</button>`
     : "";
-  const editTagsButton = item.kind === "object" || item.kind === "vehicle" || item.kind === "weapon"
+  const editTagsButton = item.kind === "object" || item.kind === "item" || item.kind === "vehicle" || item.kind === "weapon"
     ? `<button data-edit-item="${escapeHtml(item.id)}" type="button">Edit</button>`
     : "";
   const thumb = renderThumb(item);
@@ -707,11 +736,15 @@ function visibleTags(item) {
     return [category];
   }
 
+  if (item.kind === "item") {
+    return [getUsefulCategory(item)];
+  }
+
   return editableTagsFor(item).slice(0, 3);
 }
 
 function renderThumb(item) {
-  if (item.kind === "weapon") {
+  if (item.kind === "weapon" || item.kind === "item") {
     return "";
   }
 
@@ -725,10 +758,10 @@ function renderThumb(item) {
 
 function openTagEditor(item) {
   editingTagItemId = item.id;
-  editingTags = item.kind === "weapon" || item.kind === "vehicle" ? [getUsefulCategory(item)] : editableTagsFor(item);
+  editingTags = item.kind === "item" || item.kind === "weapon" || item.kind === "vehicle" ? [getUsefulCategory(item)] : editableTagsFor(item);
   els.tagTitle.textContent = `Edit tags - ${item.name}`;
 
-  if (item.kind === "weapon" || item.kind === "vehicle") {
+  if (item.kind === "item" || item.kind === "weapon" || item.kind === "vehicle") {
     els.tagAddRow.classList.add("is-hidden");
     els.tagAdd.classList.add("is-hidden");
   } else {
@@ -743,11 +776,11 @@ function openTagEditor(item) {
 
 function renderTagEditor() {
   const item = state.items.find((entry) => entry.id === editingTagItemId);
-  if (item?.kind === "weapon" || item?.kind === "vehicle") {
-    const categories = item.kind === "weapon" ? WEAPON_CATEGORIES : VEHICLE_CATEGORIES;
+  if (item?.kind === "item" || item?.kind === "weapon" || item?.kind === "vehicle") {
+    const categories = item.kind === "weapon" ? WEAPON_CATEGORIES : item.kind === "item" ? ITEM_CATEGORIES : VEHICLE_CATEGORIES;
     const selected = editingTags[0] || categories[0];
     els.tagEditor.innerHTML = categories.map((category) => {
-      return `<button class="tag-choice ${category === selected ? "active" : ""}" data-pick-category-tag="${escapeHtml(category)}" type="button">${escapeHtml(item.kind === "weapon" ? displayWeaponCategory(category) : category)}</button>`;
+      return `<button class="tag-choice ${category === selected ? "active" : ""}" data-pick-category-tag="${escapeHtml(category)}" type="button">${escapeHtml(displayCategory(item.kind, category))}</button>`;
     }).join("");
     return;
   }
@@ -778,7 +811,7 @@ function addEditingTag() {
 function saveEditedTags() {
   const item = state.items.find((entry) => entry.id === editingTagItemId);
   if (!item) return;
-  item.tags = item.kind === "weapon" ? [editingTags[0] || "OTHER"] : item.kind === "vehicle" ? [editingTags[0] || VEHICLE_CATEGORIES[0]] : [...editingTags];
+  item.tags = item.kind === "weapon" ? [editingTags[0] || "OTHER"] : item.kind === "item" ? [editingTags[0] || ITEM_CATEGORIES[0]] : item.kind === "vehicle" ? [editingTags[0] || VEHICLE_CATEGORIES[0]] : [...editingTags];
   saveItemOverride(item);
   saveState();
   renderAll();
@@ -796,7 +829,7 @@ function renderBrowser() {
 }
 
 function renderCounts() {
-  ["object", "vehicle", "weapon"].forEach((kind) => {
+  ["object", "item", "vehicle", "weapon"].forEach((kind) => {
     const target = document.querySelector(`[data-count="${kind}"]`);
     if (target) target.textContent = state.items.filter((item) => item.kind === kind).length.toLocaleString();
   });
@@ -839,6 +872,7 @@ function renderFavorites() {
 
   const groups = [
     ["Objects", "object"],
+    ["Items", "item"],
     ["Vehicles", "vehicle"],
     ["Weapons", "weapon"]
   ];
@@ -865,6 +899,18 @@ function renderFavorites() {
 
 function allTagCountsFor(kind) {
   const counts = new Map();
+  if (kind === "item") {
+    ITEM_CATEGORIES.forEach((category) => {
+      counts.set(category, state.items.filter((item) => item.kind === "item" && getUsefulCategory(item) === category).length);
+    });
+    customTagsFor("item").forEach((tag) => {
+      if (!counts.has(tag)) counts.set(tag, 0);
+    });
+    return [...counts.entries()]
+      .filter(([tag, count]) => count > 0 || customTagsFor("item").some((entry) => entry.toLowerCase() === tag.toLowerCase()))
+      .sort(([a], [b]) => sortText(a, b));
+  }
+
   if (kind === "weapon") {
     WEAPON_CATEGORIES.forEach((category) => {
       counts.set(category, state.items.filter((item) => item.kind === "weapon" && getWeaponCategory(item) === category).length);
@@ -892,6 +938,7 @@ function allTagCountsFor(kind) {
 function renderSettings() {
   const sections = [
     ["object", "Objects"],
+    ["item", "Items"],
     ["vehicle", "Vehicles"],
     ["weapon", "Weapons"]
   ];
@@ -935,6 +982,7 @@ function setTab(tab) {
   els.tabs.forEach((button) => button.classList.toggle("active", button.dataset.tab === tab));
   els.search.placeholder = {
     objects: "Search objects...",
+    items: "Search items...",
     vehicles: "Search vehicles...",
     weapons: "Search weapons...",
     favorites: "Search favorites..."
@@ -1218,7 +1266,7 @@ els.itemForm.addEventListener("submit", async (event) => {
   }
 
   saveState();
-  const targetTab = { object: "objects", vehicle: "vehicles", weapon: "weapons" }[form.kind];
+  const targetTab = { object: "objects", item: "items", vehicle: "vehicles", weapon: "weapons" }[form.kind];
   els.itemForm.reset();
   editingItemId = "";
   pendingImageData = "";

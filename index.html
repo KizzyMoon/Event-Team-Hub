@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Events Team Hub</title>
-    <link rel="stylesheet" href="hlet-styles.css?v=weapon-list-check-20260705" />
+    <link rel="stylesheet" href="hlet-styles.css?v=items-tab-20260705" />
   </head>
   <body>
     <section class="login-view" data-login-view>
@@ -26,6 +26,7 @@
         </a>
         <nav>
           <button class="active" data-tab="objects" type="button">Objects <span data-count="object">0</span></button>
+          <button data-tab="items" type="button">Items <span data-count="item">0</span></button>
           <button data-tab="vehicles" type="button">Vehicles <span data-count="vehicle">0</span></button>
           <button data-tab="weapons" type="button">Weapons <span data-count="weapon">0</span></button>
           <button data-tab="favorites" type="button">Favorites <span data-count="favorites">0</span></button>
@@ -116,6 +117,7 @@
         <label>Type
           <select name="kind">
             <option value="object">Object</option>
+            <option value="item">Item</option>
             <option value="vehicle">Vehicle</option>
             <option value="weapon">Weapon</option>
           </select>
@@ -149,7 +151,7 @@
       </form>
     </dialog>
 
-    <script src="hlet-data.js?v=weapon-list-check-20260705"></script>
-    <script src="hlet-app.js?v=weapon-list-check-20260705"></script>
+    <script src="hlet-data.js?v=items-tab-20260705"></script>
+    <script src="hlet-app.js?v=items-tab-20260705"></script>
   </body>
 </html>
