@@ -247,6 +247,7 @@ function loadState() {
       const parsed = JSON.parse(saved);
       parsed.favoritesByUser = parsed.favoritesByUser || {};
       parsed.deletedItemIds = parsed.deletedItemIds || [];
+      parsed.deletedItemCodes = parsed.deletedItemCodes || [];
       parsed.customItems = parsed.customItems || (parsed.items || []).filter((item) => String(item.id || "").startsWith("custom:"));
       parsed.itemOverrides = parsed.itemOverrides || {};
       parsed.customTags = { ...EMPTY_TAG_STATE, ...(parsed.customTags || {}) };
@@ -269,6 +270,7 @@ function loadState() {
     deletedTags: { ...EMPTY_TAG_STATE },
     favoritesByUser: {},
     deletedItemIds: [],
+    deletedItemCodes: [],
     teamMembers: [...DEFAULT_TEAM_MEMBERS],
     meetings: normalizeMeetings(DEFAULT_MEETINGS),
     tasks: normalizeTasks(DEFAULT_TASKS),
@@ -318,26 +320,32 @@ function removeSeededLists(lists = []) {
 
 function mergeSeedItems(savedState) {
   const deleted = new Set(savedState.deletedItemIds || []);
+  const deletedCodes = new Set((savedState.deletedItemCodes || []).map((code) => String(code || "").toLowerCase()));
   const deletedTags = { ...EMPTY_TAG_STATE, ...(savedState.deletedTags || {}) };
   const merged = new Map();
 
   (seed.items || []).forEach((item) => {
-    if (!deleted.has(item.id)) {
-      merged.set(item.id, {
+    if (!deleted.has(item.id) && !deletedCodes.has(String(item.code || "").toLowerCase())) {
+      const mergedItem = removeDeletedTagsFromItem({
         ...item,
         ...(savedState.itemOverrides?.[item.id] || {})
-      });
+      }, deletedTags);
+      if (!isUntaggedObject(mergedItem)) merged.set(item.id, mergedItem);
     }
   });
 
   (savedState.customItems || []).forEach((item) => {
-    if (!deleted.has(item.id)) merged.set(item.id, item);
+    const cleanedItem = removeDeletedTagsFromItem(item, deletedTags);
+    if (!deleted.has(item.id) && !deletedCodes.has(String(item.code || "").toLowerCase()) && !isUntaggedObject(cleanedItem)) {
+      merged.set(item.id, cleanedItem);
+    }
   });
 
   return {
     ...savedState,
     deletedTags,
-    items: [...merged.values()].map((item) => removeDeletedTagsFromItem(item, deletedTags))
+    deletedItemCodes: savedState.deletedItemCodes || [],
+    items: [...merged.values()]
   };
 }
 
@@ -371,6 +379,7 @@ function cleanSavedOverrides(overrides = {}, deletedTags = state.deletedTags) {
 
 function saveState() {
   const deletedTags = { ...EMPTY_TAG_STATE, ...(state.deletedTags || {}) };
+  pruneUntaggedObjects();
   const savedState = {
     customItems: (state.customItems || []).map((item) => compactSavedItem(removeDeletedTagsFromItem(item, deletedTags))),
     itemOverrides: compactSavedOverrides(cleanSavedOverrides(state.itemOverrides || {}, deletedTags)),
@@ -378,6 +387,7 @@ function saveState() {
     deletedTags,
     favoritesByUser: state.favoritesByUser || {},
     deletedItemIds: state.deletedItemIds || [],
+    deletedItemCodes: state.deletedItemCodes || [],
     teamMembers: normalizeTeamMembers(state.teamMembers || DEFAULT_TEAM_MEMBERS),
     meetings: normalizeMeetings(state.meetings || DEFAULT_MEETINGS),
     tasks: normalizeTasks(state.tasks || DEFAULT_TASKS),
@@ -650,6 +660,41 @@ function removeDeletedTagsFromItem(item, deletedTags = state.deletedTags) {
   };
 }
 
+function isUntaggedObject(item) {
+  return item?.kind === "object" && !(item.tags || []).filter(Boolean).length;
+}
+
+function rememberDeletedItem(item) {
+  if (!item) return;
+  state.deletedItemIds = state.deletedItemIds || [];
+  state.deletedItemCodes = state.deletedItemCodes || [];
+  if (item.id && !state.deletedItemIds.includes(item.id)) state.deletedItemIds.push(item.id);
+  const code = String(item.code || "").trim();
+  if (code && !state.deletedItemCodes.some((entry) => entry.toLowerCase() === code.toLowerCase())) {
+    state.deletedItemCodes.push(code);
+  }
+}
+
+function pruneUntaggedObjects() {
+  const untagged = (state.items || []).filter(isUntaggedObject);
+  if (!untagged.length) return false;
+  const removedIds = new Set(untagged.map((item) => item.id));
+  untagged.forEach(rememberDeletedItem);
+  state.items = (state.items || []).filter((item) => !removedIds.has(item.id));
+  state.customItems = (state.customItems || []).filter((item) => !removedIds.has(item.id));
+  state.itemOverrides = Object.fromEntries(Object.entries(state.itemOverrides || {}).filter(([id]) => !removedIds.has(id)));
+  state.lists = (state.lists || []).map((list) => ({
+    ...list,
+    itemIds: (list.itemIds || []).filter((id) => !removedIds.has(id))
+  }));
+  Object.values(state.favoritesByUser || {}).forEach((ids) => {
+    for (let index = ids.length - 1; index >= 0; index -= 1) {
+      if (removedIds.has(ids[index])) ids.splice(index, 1);
+    }
+  });
+  return true;
+}
+
 function removeDeletedTagsFromOverrides(kind, deletedTags = state.deletedTags) {
   state.itemOverrides = Object.fromEntries(Object.entries(state.itemOverrides || {}).map(([id, override]) => {
     return [id, override.kind === kind ? removeDeletedTagsFromItem(override, deletedTags) : override];
@@ -853,11 +898,11 @@ async function deleteItemById(itemId) {
   const previousCustomItems = state.customItems || [];
   const previousOverrides = { ...(state.itemOverrides || {}) };
   const previousDeletedItemIds = [...(state.deletedItemIds || [])];
+  const previousDeletedItemCodes = [...(state.deletedItemCodes || [])];
   const previousLists = state.lists.map((list) => ({ ...list, itemIds: [...list.itemIds] }));
   const previousFavoritesByUser = Object.fromEntries(Object.entries(state.favoritesByUser || {}).map(([key, ids]) => [key, [...ids]]));
 
-  state.deletedItemIds = state.deletedItemIds || [];
-  if (!state.deletedItemIds.includes(item.id)) state.deletedItemIds.push(item.id);
+  rememberDeletedItem(item);
   state.items = state.items.filter((entry) => entry.id !== item.id);
   state.customItems = (state.customItems || []).filter((entry) => entry.id !== item.id);
   if (state.itemOverrides) delete state.itemOverrides[item.id];
@@ -872,6 +917,7 @@ async function deleteItemById(itemId) {
     state.customItems = previousCustomItems;
     state.itemOverrides = previousOverrides;
     state.deletedItemIds = previousDeletedItemIds;
+    state.deletedItemCodes = previousDeletedItemCodes;
     state.lists = previousLists;
     state.favoritesByUser = previousFavoritesByUser;
     return false;
