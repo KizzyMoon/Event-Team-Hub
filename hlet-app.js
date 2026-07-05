@@ -446,7 +446,7 @@ function rememberDeletedTag(kind, tag) {
 }
 
 function forgetDeletedTag(kind, tag) {
-  state.deletedTags = state.deletedTags || { object: [], vehicle: [], weapon: [] };
+  state.deletedTags = { ...EMPTY_TAG_STATE, ...(state.deletedTags || {}) };
   state.deletedTags[kind] = deletedTagsFor(kind).filter((entry) => entry.toLowerCase() !== normalizeTag(kind, tag).toLowerCase());
 }
 
@@ -491,9 +491,8 @@ function deleteTagEverywhere(kind, tag) {
 function applySettingsTagDelete(kind, tag) {
   rememberDeletedTag(kind, tag);
   state.customTags[kind] = customTagsFor(kind).filter((entry) => entry.toLowerCase() !== String(tag).toLowerCase());
-  if (!saveState()) return false;
   state.items = state.items.map((item) => item.kind === kind ? removeDeletedTagsFromItem(item) : item);
-  return true;
+  return saveState();
 }
 
 function submitSettingsTag(form) {
@@ -532,12 +531,13 @@ function categoriesFor(type) {
   }
 
   if (type === "item" || type === "weapon") {
-    const baseCategories = type === "item" ? ITEM_CATEGORIES : WEAPON_CATEGORIES;
+    const baseCategories = (type === "item" ? ITEM_CATEGORIES : WEAPON_CATEGORIES).filter((category) => !tagWasDeleted(type, category));
     const base = baseCategories
       .map((category) => [category, state.items.filter((item) => item.kind === type && getUsefulCategory(item) === category).length])
       .filter(([, count]) => type === "item" || count > 0)
       .sort(([a], [b]) => sortText(displayCategory(type, a), displayCategory(type, b)));
     customTagsFor(type).forEach((tag) => {
+      if (tagWasDeleted(type, tag)) return;
       if (!base.some(([category]) => category.toLowerCase() === tag.toLowerCase())) base.push([tag, 0]);
     });
     return base.sort(([a], [b]) => sortText(displayCategory(type, a), displayCategory(type, b)));
@@ -546,9 +546,11 @@ function categoriesFor(type) {
   const counts = new Map();
   state.items.filter((item) => item.kind === type).forEach((item) => {
     const category = getUsefulCategory(item);
+    if (tagWasDeleted(type, category)) return;
     counts.set(category, (counts.get(category) || 0) + 1);
   });
   customTagsFor(type).forEach((tag) => {
+    if (tagWasDeleted(type, tag)) return;
     if (!counts.has(tag)) counts.set(tag, 0);
   });
   return [...counts.entries()].sort(([a], [b]) => sortText(a, b));
@@ -775,11 +777,12 @@ function renderCard(item, options = {}) {
 function visibleTags(item) {
   if (item.kind === "weapon") {
     const category = getWeaponCategory(item);
-    return [category];
+    return tagWasDeleted(item.kind, category) ? [] : [category];
   }
 
   if (item.kind === "item") {
-    return [getUsefulCategory(item)];
+    const category = getUsefulCategory(item);
+    return tagWasDeleted(item.kind, category) ? [] : [category];
   }
 
   return editableTagsFor(item).slice(0, 3);
@@ -942,10 +945,11 @@ function renderFavorites() {
 function allTagCountsFor(kind) {
   const counts = new Map();
   if (kind === "item") {
-    ITEM_CATEGORIES.forEach((category) => {
+    ITEM_CATEGORIES.filter((category) => !tagWasDeleted("item", category)).forEach((category) => {
       counts.set(category, state.items.filter((item) => item.kind === "item" && getUsefulCategory(item) === category).length);
     });
     customTagsFor("item").forEach((tag) => {
+      if (tagWasDeleted("item", tag)) return;
       if (!counts.has(tag)) counts.set(tag, 0);
     });
     return [...counts.entries()]
@@ -954,10 +958,11 @@ function allTagCountsFor(kind) {
   }
 
   if (kind === "weapon") {
-    WEAPON_CATEGORIES.forEach((category) => {
+    WEAPON_CATEGORIES.filter((category) => !tagWasDeleted("weapon", category)).forEach((category) => {
       counts.set(category, state.items.filter((item) => item.kind === "weapon" && getWeaponCategory(item) === category).length);
     });
     customTagsFor("weapon").forEach((tag) => {
+      if (tagWasDeleted("weapon", tag)) return;
       if (!counts.has(tag)) counts.set(tag, 0);
     });
     return [...counts.entries()]
@@ -968,10 +973,12 @@ function allTagCountsFor(kind) {
   state.items.filter((item) => item.kind === kind).forEach((item) => {
     (item.tags || []).forEach((tag) => {
       const normalizedTag = normalizeTag(kind, tag);
+      if (tagWasDeleted(kind, normalizedTag)) return;
       if (!isMetadataTag(normalizedTag)) counts.set(normalizedTag, (counts.get(normalizedTag) || 0) + 1);
     });
   });
   customTagsFor(kind).forEach((tag) => {
+    if (tagWasDeleted(kind, tag)) return;
     if (!counts.has(tag)) counts.set(tag, 0);
   });
   return [...counts.entries()].sort(([a], [b]) => sortText(a, b));
@@ -1009,6 +1016,7 @@ function renderSettings() {
 }
 
 function renderAll(options = {}) {
+  state.items = state.items.map(removeDeletedTagsFromItem);
   renderCounts();
   renderCategories(options);
   renderBrowser();
