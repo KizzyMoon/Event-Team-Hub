@@ -55,6 +55,7 @@ const VEHICLE_CATEGORIES = [
   "Weapon",
   "Offroad"
 ];
+const SEEDED_LIST_NAMES = new Set(["4th of July", "Birthday bash", "World Cup", "Carwash"]);
 
 const seed = window.HLET_SEED_DATA || { items: [] };
 const IMAGE_DB_NAME = "hlet-image-store-v1";
@@ -128,6 +129,7 @@ function loadState() {
       parsed.itemOverrides = parsed.itemOverrides || {};
       parsed.customTags = { ...EMPTY_TAG_STATE, ...(parsed.customTags || {}) };
       parsed.deletedTags = { ...EMPTY_TAG_STATE, ...(parsed.deletedTags || {}) };
+      parsed.lists = removeSeededLists(parsed.lists || []);
       return mergeSeedItems(parsed);
     } catch (error) {
       console.error("Could not read saved Events Team Hub data.", error);
@@ -142,13 +144,12 @@ function loadState() {
     deletedTags: { ...EMPTY_TAG_STATE },
     favoritesByUser: {},
     deletedItemIds: [],
-    lists: [
-      { id: crypto.randomUUID(), name: "4th of July", createdBy: "Kizzy", itemIds: [] },
-      { id: crypto.randomUUID(), name: "Birthday bash", createdBy: "Kizzy", itemIds: [] },
-      { id: crypto.randomUUID(), name: "World Cup", createdBy: "Kizzy", itemIds: [] },
-      { id: crypto.randomUUID(), name: "Carwash", createdBy: "Kizzy", itemIds: [] }
-    ]
+    lists: []
   };
+}
+
+function removeSeededLists(lists = []) {
+  return lists.filter((list) => !(SEEDED_LIST_NAMES.has(list.name) && list.createdBy === "Kizzy"));
 }
 
 function mergeSeedItems(savedState) {
