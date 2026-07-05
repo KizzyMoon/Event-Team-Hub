@@ -40,7 +40,7 @@ const ITEM_CATEGORIES = [
   "Weapon Parts",
   "Weed"
 ];
-const WEAPON_CATEGORIES = ["HEAVY", "SMGS", "THROWABLES", "MELEE", "OTHER", "PISTOLS", "SHOTGUNS", "RIFLES"];
+const WEAPON_CATEGORIES = ["HEAVY", "SMGS", "THROWABLES", "MELEE", "OTHER", "PISTOLS", "SHOTGUNS", "RIFLES", "MODS"];
 const CRIMINAL_ITEM_TAGS = new Set(["blueprints", "drugs", "heist", "shrooms", "weed"]);
 const VEHICLE_CATEGORIES = [
   "BCSO",
@@ -623,6 +623,8 @@ function getWeaponCategory(item) {
   const text = `${item.name} ${item.code} ${(item.tags || []).join(" ")}`.toLowerCase();
   const manualCategory = (item.tags || []).find((tag) => WEAPON_CATEGORIES.includes(String(tag).toUpperCase()));
   if (manualCategory) return manualCategory.toUpperCase();
+  if (item.kind === "item" && (item.tags || []).some((tag) => String(tag).toLowerCase() === "weapon mods")) return "MODS";
+  if (/^mod_/i.test(String(item.code || ""))) return "MODS";
   if (/\b(knife|bat|club|hammer|hatchet|machete|wrench|crowbar|bottle|knuckle|nightstick|battleaxe|pool cue|golf club|dagger|axe|brick|candy cane|sledgehammer|flashlight)\b/.test(text)) return "MELEE";
   if (/\b(grenade|molotov|sticky|pipe bomb|pipebomb|mine|bz gas|tear gas|snowball|ball)\b/.test(text)) return "THROWABLES";
   if (/\b(rpg|rocket|launcher|minigun|railgun|widowmaker|cannon|missile|mg|machine gun|combat mg|pkm|rpk)\b/.test(text)) return "HEAVY";
@@ -646,7 +648,12 @@ function categoriesFor(type) {
   if (type === "item" || type === "weapon") {
     const baseCategories = (type === "item" ? ITEM_CATEGORIES : WEAPON_CATEGORIES).filter((category) => !tagWasDeleted(type, category));
     const base = baseCategories
-      .map((category) => [category, state.items.filter((item) => item.kind === type && getUsefulCategory(item) === category).length])
+      .map((category) => [category, state.items.filter((item) => {
+        if (type === "weapon") {
+          return (item.kind === "weapon" || (item.kind === "item" && getWeaponCategory(item) === "MODS")) && getWeaponCategory(item) === category;
+        }
+        return item.kind === type && getUsefulCategory(item) === category;
+      }).length])
       .filter(([, count]) => type === "item" || count > 0)
       .sort(([a], [b]) => sortText(displayCategory(type, a), displayCategory(type, b)));
     customTagsFor(type).forEach((tag) => {
@@ -797,9 +804,13 @@ function filteredItems() {
   const search = els.search.value.trim().toLowerCase();
   const source = activeTab === "favorites" ? favoriteItems() : state.items;
   return sortItemsByName(source.filter((item) => {
-    if (activeTab !== "favorites" && item.kind !== type) return false;
+    const isWeaponMod = type === "weapon" && item.kind === "item" && getWeaponCategory(item) === "MODS";
+    if (activeTab !== "favorites" && item.kind !== type && !isWeaponMod) return false;
     if (activeTab === "favorites" && activeCategory !== "All" && `${item.kind}s` !== activeCategory.toLowerCase()) return false;
-    if (activeTab !== "favorites" && activeCategory !== "All" && getUsefulCategory(item) !== activeCategory) return false;
+    if (activeTab !== "favorites" && activeCategory !== "All") {
+      const category = type === "weapon" ? getWeaponCategory(item) : getUsefulCategory(item);
+      if (category !== activeCategory) return false;
+    }
     if (!search) return true;
     return `${item.name} ${item.code} ${(item.tags || []).join(" ")} ${item.notes || ""}`.toLowerCase().includes(search);
   }));
@@ -853,7 +864,8 @@ function displayWeaponCategory(category) {
     OTHER: "Other",
     PISTOLS: "Pistols",
     SHOTGUNS: "Shotguns",
-    RIFLES: "Rifles"
+    RIFLES: "Rifles",
+    MODS: "Mods"
   }[category] || category;
 }
 
@@ -1149,7 +1161,9 @@ function allTagCountsFor(kind) {
 
   if (kind === "weapon") {
     WEAPON_CATEGORIES.filter((category) => !tagWasDeleted("weapon", category)).forEach((category) => {
-      counts.set(category, state.items.filter((item) => item.kind === "weapon" && getWeaponCategory(item) === category).length);
+      counts.set(category, state.items.filter((item) => {
+        return (item.kind === "weapon" || (item.kind === "item" && getWeaponCategory(item) === "MODS")) && getWeaponCategory(item) === category;
+      }).length);
     });
     customTagsFor("weapon").forEach((tag) => {
       if (tagWasDeleted("weapon", tag)) return;
