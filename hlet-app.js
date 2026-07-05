@@ -88,6 +88,7 @@ const els = {
   favoriteSearch: document.querySelector("[data-favorite-search]"),
   favoriteItems: document.querySelector("[data-favorite-items]"),
   lists: document.querySelector("[data-lists]"),
+  meetings: document.querySelector("[data-meetings]"),
   settings: document.querySelector("[data-settings]"),
   search: document.querySelector("[data-search]"),
   categories: document.querySelector("[data-categories]"),
@@ -1031,10 +1032,12 @@ function setTab(tab) {
   const listMode = tab === "lists";
   const settingsMode = tab === "settings";
   const favoriteMode = tab === "favorites";
-  els.toolbar.classList.toggle("is-hidden", listMode || settingsMode || favoriteMode);
-  els.browser.classList.toggle("is-hidden", listMode || settingsMode || favoriteMode);
+  const meetingsMode = tab === "meetings";
+  els.toolbar.classList.toggle("is-hidden", listMode || settingsMode || favoriteMode || meetingsMode);
+  els.browser.classList.toggle("is-hidden", listMode || settingsMode || favoriteMode || meetingsMode);
   els.favoritesView.classList.toggle("is-hidden", !favoriteMode);
   els.lists.classList.toggle("is-hidden", !listMode);
+  els.meetings.classList.toggle("is-hidden", !meetingsMode);
   els.settings.classList.toggle("is-hidden", !settingsMode);
   renderAll();
 }

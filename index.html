@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Events Team Hub</title>
-    <link rel="stylesheet" href="hlet-styles.css?v=remove-seeded-lists-20260705" />
+    <link rel="stylesheet" href="hlet-styles.css?v=meetings-page-20260705" />
   </head>
   <body>
     <section class="login-view" data-login-view>
@@ -31,6 +31,7 @@
           <button data-tab="weapons" type="button">Weapons <span data-count="weapon">0</span></button>
           <button data-tab="favorites" type="button">Favorites <span data-count="favorites">0</span></button>
           <button data-tab="lists" type="button">Lists <span data-count="lists">0</span></button>
+          <button data-tab="meetings" type="button">Meetings</button>
           <button data-tab="settings" type="button">Settings</button>
         </nav>
         <div class="account">
@@ -107,6 +108,131 @@
         </div>
         <div class="settings-grid" data-settings-panels></div>
       </section>
+
+      <section class="meetings is-hidden" data-meetings>
+        <div class="meeting-actions">
+          <button type="button">New Meeting</button>
+          <button type="button">New Task</button>
+          <button type="button">Log Attendance</button>
+          <button type="button">Team Directory</button>
+        </div>
+
+        <div class="meeting-layout">
+          <div class="meeting-main">
+            <div class="meeting-stats">
+              <article class="meeting-panel stat-panel">
+                <span>Overall Attendance (Last 30 Days)</span>
+                <strong>78%</strong>
+                <div class="mini-bar"><span style="width: 78%"></span></div>
+                <small>Good job! Let's keep it up.</small>
+              </article>
+              <article class="meeting-panel stat-panel">
+                <span>Meetings This Month</span>
+                <strong>4</strong>
+                <small>2 upcoming + 2 completed</small>
+              </article>
+              <article class="meeting-panel stat-panel">
+                <span>Tasks In Progress</span>
+                <strong>7</strong>
+                <small class="danger-text">3 overdue</small>
+              </article>
+            </div>
+
+            <article class="meeting-panel upcoming-meeting">
+              <h3>Upcoming Meeting</h3>
+              <div class="upcoming-card">
+                <div class="meeting-art"></div>
+                <div>
+                  <h4>Halloween Event Planning</h4>
+                  <p>Friday, 30 May 2025 - 7:00 PM (BST)</p>
+                  <p>Event Room 1</p>
+                  <small>Discuss themes, activities, and staff roles for the Halloween event.</small>
+                </div>
+                <div class="meeting-status">
+                  <span>Your Status <strong>Attending</strong></span>
+                  <span>RSVP by <strong>28 May 2025</strong></span>
+                  <button type="button">View Meeting</button>
+                </div>
+              </div>
+            </article>
+
+            <article class="meeting-panel recent-meetings">
+              <h3>Recent Meetings</h3>
+              <div class="meeting-tabs">
+                <button class="active" type="button">All</button>
+                <button type="button">Attended</button>
+                <button type="button">Missed</button>
+                <button type="button">Unavailable</button>
+              </div>
+              <table>
+                <thead>
+                  <tr><th>Meeting</th><th>Date</th><th>Your Status</th><th>Attendance</th><th>Tasks</th><th>Notes</th></tr>
+                </thead>
+                <tbody>
+                  <tr><td>Summer Event Kickoff</td><td>18 May 2025</td><td><span class="pill good">Attended</span></td><td>9 / 12 (75%)</td><td>5 / 5</td><td>View</td></tr>
+                  <tr><td>Event Team Sync</td><td>11 May 2025</td><td><span class="pill good">Attended</span></td><td>10 / 12 (83%)</td><td>3 / 3</td><td>View</td></tr>
+                  <tr><td>Charity Event Planning</td><td>4 May 2025</td><td><span class="pill bad">Missed</span></td><td>7 / 12 (58%)</td><td>2 / 4</td><td>View</td></tr>
+                  <tr><td>Easter Event Debrief</td><td>27 Apr 2025</td><td><span class="pill good">Attended</span></td><td>11 / 12 (92%)</td><td>4 / 4</td><td>View</td></tr>
+                  <tr><td>Event Brainstorm</td><td>20 Apr 2025</td><td><span class="pill warn">Unavailable</span></td><td>8 / 12 (67%)</td><td>2 / 2</td><td>View</td></tr>
+                </tbody>
+              </table>
+              <button class="wide-button" type="button">View All Meetings</button>
+            </article>
+
+            <div class="meeting-footer-grid">
+              <article class="meeting-panel team-note">Teamwork makes the event work.</article>
+              <article class="meeting-panel quick-links">
+                <h3>Quick Links</h3>
+                <button type="button">Team Directory</button>
+                <button type="button">Event Calendar</button>
+                <button type="button">Templates & Resources</button>
+              </article>
+            </div>
+          </div>
+
+          <aside class="meeting-side">
+            <article class="meeting-panel">
+              <h3>Attendance Overview (Last 30 Days)</h3>
+              <div class="attendance-list">
+                <span>Licora <b><i style="width: 96%"></i></b><em>96%</em></span>
+                <span>Kai <b><i style="width: 88%"></i></b><em>88%</em></span>
+                <span>Maya <b><i style="width: 83%"></i></b><em>83%</em></span>
+                <span>Jax <b><i style="width: 75%"></i></b><em>75%</em></span>
+                <span>Aria <b><i style="width: 63%"></i></b><em>63%</em></span>
+                <span>Ryn <b><i style="width: 50%"></i></b><em>50%</em></span>
+                <span>Nova <b><i style="width: 38%"></i></b><em>38%</em></span>
+              </div>
+              <button class="wide-button" type="button">View Full Attendance Dashboard</button>
+            </article>
+
+            <article class="meeting-panel">
+              <h3>Tasks (Quick View)</h3>
+              <div class="meeting-tabs">
+                <button class="active" type="button">All</button>
+                <button type="button">My Tasks</button>
+                <button type="button">Overdue</button>
+              </div>
+              <ul class="task-list">
+                <li><input type="checkbox" /> Book Halloween venue <span class="pill bad">Overdue</span></li>
+                <li><input type="checkbox" /> Create event budget <span class="pill warn">In Progress</span></li>
+                <li><input type="checkbox" /> Confirm vendors <span class="pill todo">To Do</span></li>
+                <li><input type="checkbox" /> Design social media graphics <span class="pill todo">To Do</span></li>
+              </ul>
+              <button class="wide-button" type="button">View All Tasks</button>
+            </article>
+
+            <article class="meeting-panel">
+              <h3>Meeting Archive</h3>
+              <div class="archive-list">
+                <span>2025 <em>12 meetings</em></span>
+                <span>2024 <em>18 meetings</em></span>
+                <span>2023 <em>9 meetings</em></span>
+              </div>
+              <button class="wide-button" type="button">View Full Archive</button>
+            </article>
+          </aside>
+        </div>
+      </section>
     </main>
 
     <dialog data-item-dialog>
@@ -152,7 +278,7 @@
       </form>
     </dialog>
 
-    <script src="hlet-data.js?v=remove-seeded-lists-20260705"></script>
-    <script src="hlet-app.js?v=remove-seeded-lists-20260705"></script>
+    <script src="hlet-data.js?v=meetings-page-20260705"></script>
+    <script src="hlet-app.js?v=meetings-page-20260705"></script>
   </body>
 </html>
