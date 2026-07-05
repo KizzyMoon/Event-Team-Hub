@@ -919,10 +919,16 @@ nav span {
 
 .task-list li {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
   gap: 9px;
   align-items: center;
   font-size: 0.82rem;
+}
+
+.task-list small {
+  color: var(--muted);
+  font-size: 0.68rem;
+  white-space: nowrap;
 }
 
 .task-list li.is-complete {
@@ -949,9 +955,17 @@ dialog::backdrop {
 
 [data-item-form],
 [data-tag-form],
-[data-reward-form] {
+[data-reward-form],
+[data-meeting-form],
+[data-task-form] {
   display: grid;
   gap: 12px;
+}
+
+.form-grid-two {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
 }
 
 .image-drop {
@@ -1047,6 +1061,7 @@ dialog::backdrop {
   .meeting-layout,
   .meeting-stats,
   .meeting-footer-grid,
+  .form-grid-two,
   .upcoming-card {
     grid-template-columns: 1fr;
   }

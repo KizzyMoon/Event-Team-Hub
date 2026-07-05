@@ -156,20 +156,7 @@
 
             <article class="meeting-panel upcoming-meeting">
               <h3>Upcoming Meeting</h3>
-              <div class="upcoming-card">
-                <div class="meeting-art"></div>
-                <div>
-                  <h4>Halloween Event Planning</h4>
-                  <p>Friday, 30 May 2025 - 7:00 PM (BST)</p>
-                  <p>Event Room 1</p>
-                  <small>Discuss themes, activities, and staff roles for the Halloween event.</small>
-                </div>
-                <div class="meeting-status">
-                  <span>Your Status <strong>Attending</strong></span>
-                  <span>RSVP by <strong>28 May 2025</strong></span>
-                  <button data-meeting-action="view-upcoming" type="button">View Meeting</button>
-                </div>
-              </div>
+              <div data-upcoming-meeting></div>
             </article>
 
             <article class="meeting-panel recent-meetings">
@@ -184,13 +171,7 @@
                 <thead>
                   <tr><th>Meeting</th><th>Date</th><th>Your Status</th><th>Attendance</th><th>Tasks</th><th>Notes</th></tr>
                 </thead>
-                <tbody>
-                  <tr data-meeting-status="attended"><td>Summer Event Kickoff</td><td>18 May 2025</td><td><span class="pill good">Attended</span></td><td>9 / 12 (75%)</td><td>5 / 5</td><td><button data-meeting-note="Summer Event Kickoff" type="button">View</button></td></tr>
-                  <tr data-meeting-status="attended"><td>Event Team Sync</td><td>11 May 2025</td><td><span class="pill good">Attended</span></td><td>10 / 12 (83%)</td><td>3 / 3</td><td><button data-meeting-note="Event Team Sync" type="button">View</button></td></tr>
-                  <tr data-meeting-status="missed"><td>Charity Event Planning</td><td>4 May 2025</td><td><span class="pill bad">Missed</span></td><td>7 / 12 (58%)</td><td>2 / 4</td><td><button data-meeting-note="Charity Event Planning" type="button">View</button></td></tr>
-                  <tr data-meeting-status="attended"><td>Easter Event Debrief</td><td>27 Apr 2025</td><td><span class="pill good">Attended</span></td><td>11 / 12 (92%)</td><td>4 / 4</td><td><button data-meeting-note="Easter Event Debrief" type="button">View</button></td></tr>
-                  <tr data-meeting-status="unavailable"><td>Event Brainstorm</td><td>20 Apr 2025</td><td><span class="pill warn">Unavailable</span></td><td>8 / 12 (67%)</td><td>2 / 2</td><td><button data-meeting-note="Event Brainstorm" type="button">View</button></td></tr>
-                </tbody>
+                <tbody data-recent-meetings></tbody>
               </table>
               <button class="wide-button" data-meeting-filter="all" type="button">View All Meetings</button>
             </article>
@@ -227,12 +208,7 @@
                 <button data-task-filter="mine" type="button">My Tasks</button>
                 <button data-task-filter="overdue" type="button">Overdue</button>
               </div>
-              <ul class="task-list">
-                <li data-task-owner="mine" data-task-status="overdue"><input type="checkbox" /> Book Halloween venue <span class="pill bad">Overdue</span></li>
-                <li data-task-owner="team" data-task-status="progress"><input type="checkbox" /> Create event budget <span class="pill warn">In Progress</span></li>
-                <li data-task-owner="mine" data-task-status="todo"><input type="checkbox" /> Confirm vendors <span class="pill todo">To Do</span></li>
-                <li data-task-owner="team" data-task-status="todo"><input type="checkbox" /> Design social media graphics <span class="pill todo">To Do</span></li>
-              </ul>
+              <ul class="task-list" data-task-list></ul>
               <button class="wide-button" data-task-filter="all" type="button">View All Tasks</button>
             </article>
 
@@ -307,7 +283,38 @@
       </form>
     </dialog>
 
-    <script src="hlet-data.js?v=team-directory-20260705"></script>
-    <script src="hlet-app.js?v=team-directory-20260705"></script>
+    <dialog data-meeting-dialog>
+      <form method="dialog" data-meeting-form>
+        <h3>New meeting</h3>
+        <label>Meeting name<input name="name" required /></label>
+        <div class="form-grid-two">
+          <label>Date<input name="date" type="date" required /></label>
+          <label>Time<input name="time" type="time" required /></label>
+        </div>
+        <label>Location<input name="location" placeholder="Event Room 1" /></label>
+        <label>Notes<textarea name="notes" rows="3"></textarea></label>
+        <div class="dialog-actions">
+          <button data-close-meeting-dialog type="button">Cancel</button>
+          <button type="submit">Save</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog data-task-dialog>
+      <form method="dialog" data-task-form>
+        <h3>New task</h3>
+        <label>Task name<input name="name" required /></label>
+        <label>Description<textarea name="description" rows="3"></textarea></label>
+        <label>Due date<input name="dueDate" type="date" /></label>
+        <label>Linked meeting<select name="meetingId" data-task-meeting-select></select></label>
+        <div class="dialog-actions">
+          <button data-close-task-dialog type="button">Cancel</button>
+          <button type="submit">Save</button>
+        </div>
+      </form>
+    </dialog>
+
+    <script src="hlet-data.js?v=meeting-task-dialogs-20260705"></script>
+    <script src="hlet-app.js?v=meeting-task-dialogs-20260705"></script>
   </body>
 </html>

@@ -4,6 +4,20 @@ const SESSION_KEY = "hlet-session-v1";
 const PAGE_SIZE = 120;
 const EMPTY_TAG_STATE = { object: [], item: [], vehicle: [], weapon: [] };
 const DEFAULT_TEAM_MEMBERS = ["Licora", "Kai", "Maya", "Jax", "Aria", "Ryn", "Nova"];
+const DEFAULT_MEETINGS = [
+  { id: "meeting:halloween", name: "Halloween Event Planning", date: "2025-05-30", time: "19:00", location: "Event Room 1", notes: "Discuss themes, activities, and staff roles.", status: "upcoming" },
+  { id: "meeting:summer-kickoff", name: "Summer Event Kickoff", date: "2025-05-18", time: "19:00", location: "Event Room 1", notes: "", status: "attended" },
+  { id: "meeting:event-sync", name: "Event Team Sync", date: "2025-05-11", time: "19:00", location: "Event Room 1", notes: "", status: "attended" },
+  { id: "meeting:charity", name: "Charity Event Planning", date: "2025-05-04", time: "19:00", location: "Event Room 1", notes: "", status: "missed" },
+  { id: "meeting:easter", name: "Easter Event Debrief", date: "2025-04-27", time: "19:00", location: "Event Room 1", notes: "", status: "attended" },
+  { id: "meeting:brainstorm", name: "Event Brainstorm", date: "2025-04-20", time: "19:00", location: "Event Room 1", notes: "", status: "unavailable" }
+];
+const DEFAULT_TASKS = [
+  { id: "task:venue", name: "Book Halloween venue", description: "", dueDate: "2025-05-25", meetingId: "meeting:halloween", owner: "mine", status: "overdue", complete: false },
+  { id: "task:budget", name: "Create event budget", description: "", dueDate: "2025-05-26", meetingId: "meeting:halloween", owner: "team", status: "progress", complete: false },
+  { id: "task:vendors", name: "Confirm vendors", description: "", dueDate: "2025-05-27", meetingId: "meeting:summer-kickoff", owner: "mine", status: "todo", complete: false },
+  { id: "task:socials", name: "Design social media graphics", description: "", dueDate: "2025-05-28", meetingId: "meeting:halloween", owner: "team", status: "todo", complete: false }
+];
 const ITEM_CATEGORIES = [
   "Ammo",
   "Blueprints",
@@ -97,6 +111,14 @@ const els = {
   teamDirectoryGrid: document.querySelector("[data-team-directory-grid]"),
   teamMemberForm: document.querySelector("[data-team-member-form]"),
   teamMemberCount: document.querySelector("[data-team-member-count]"),
+  meetingForm: document.querySelector("[data-meeting-form]"),
+  meetingDialog: document.querySelector("[data-meeting-dialog]"),
+  taskForm: document.querySelector("[data-task-form]"),
+  taskDialog: document.querySelector("[data-task-dialog]"),
+  taskMeetingSelect: document.querySelector("[data-task-meeting-select]"),
+  upcomingMeeting: document.querySelector("[data-upcoming-meeting]"),
+  recentMeetings: document.querySelector("[data-recent-meetings]"),
+  taskList: document.querySelector("[data-task-list]"),
   settings: document.querySelector("[data-settings]"),
   search: document.querySelector("[data-search]"),
   categories: document.querySelector("[data-categories]"),
@@ -142,6 +164,8 @@ function loadState() {
       parsed.customTags = { ...EMPTY_TAG_STATE, ...(parsed.customTags || {}) };
       parsed.deletedTags = { ...EMPTY_TAG_STATE, ...(parsed.deletedTags || {}) };
       parsed.teamMembers = normalizeTeamMembers(parsed.teamMembers || DEFAULT_TEAM_MEMBERS);
+      parsed.meetings = normalizeMeetings(parsed.meetings || DEFAULT_MEETINGS);
+      parsed.tasks = normalizeTasks(parsed.tasks || DEFAULT_TASKS);
       parsed.lists = removeSeededLists(parsed.lists || []);
       return mergeSeedItems(parsed);
     } catch (error) {
@@ -158,6 +182,8 @@ function loadState() {
     favoritesByUser: {},
     deletedItemIds: [],
     teamMembers: [...DEFAULT_TEAM_MEMBERS],
+    meetings: normalizeMeetings(DEFAULT_MEETINGS),
+    tasks: normalizeTasks(DEFAULT_TASKS),
     lists: []
   };
 }
@@ -165,6 +191,37 @@ function loadState() {
 function normalizeTeamMembers(members = []) {
   return [...new Set(members.map((name) => String(name || "").trim()).filter(Boolean))]
     .sort((a, b) => sortText(a, b));
+}
+
+function normalizeMeetings(meetings = []) {
+  return meetings
+    .map((meeting) => ({
+      id: meeting.id || `meeting:${crypto.randomUUID()}`,
+      name: String(meeting.name || "").trim(),
+      date: meeting.date || "",
+      time: meeting.time || "",
+      location: meeting.location || "",
+      notes: meeting.notes || "",
+      status: meeting.status || "upcoming"
+    }))
+    .filter((meeting) => meeting.name)
+    .sort((a, b) => `${b.date} ${b.time}`.localeCompare(`${a.date} ${a.time}`));
+}
+
+function normalizeTasks(tasks = []) {
+  return tasks
+    .map((task) => ({
+      id: task.id || `task:${crypto.randomUUID()}`,
+      name: String(task.name || "").trim(),
+      description: task.description || "",
+      dueDate: task.dueDate || "",
+      meetingId: task.meetingId || "",
+      owner: task.owner || "mine",
+      status: task.status || "todo",
+      complete: Boolean(task.complete)
+    }))
+    .filter((task) => task.name)
+    .sort((a, b) => String(a.dueDate || "9999-99-99").localeCompare(String(b.dueDate || "9999-99-99")));
 }
 
 function removeSeededLists(lists = []) {
@@ -225,6 +282,8 @@ function saveState() {
     favoritesByUser: state.favoritesByUser || {},
     deletedItemIds: state.deletedItemIds || [],
     teamMembers: normalizeTeamMembers(state.teamMembers || DEFAULT_TEAM_MEMBERS),
+    meetings: normalizeMeetings(state.meetings || DEFAULT_MEETINGS),
+    tasks: normalizeTasks(state.tasks || DEFAULT_TASKS),
     lists: state.lists || []
   };
   try {
@@ -1121,6 +1180,7 @@ function renderAll(options = {}) {
   renderLists();
   renderSettings();
   renderTeamDirectory();
+  renderMeetingDashboard();
 }
 
 function setTab(tab) {
@@ -1168,11 +1228,91 @@ function filterTaskRows(filter) {
   });
 }
 
+function formatMeetingDate(meeting) {
+  const date = meeting.date ? new Date(`${meeting.date}T${meeting.time || "00:00"}`) : null;
+  const dateText = date && !Number.isNaN(date.getTime())
+    ? date.toLocaleDateString("en-GB", { weekday: "short", day: "2-digit", month: "short", year: "numeric" })
+    : "No date";
+  return `${dateText}${meeting.time ? ` - ${meeting.time}` : ""}`;
+}
+
+function meetingById(id) {
+  return (state.meetings || []).find((meeting) => meeting.id === id);
+}
+
+function taskPill(status, complete = false) {
+  if (complete) return `<span class="pill good">Done</span>`;
+  if (status === "overdue") return `<span class="pill bad">Overdue</span>`;
+  if (status === "progress") return `<span class="pill warn">In Progress</span>`;
+  return `<span class="pill todo">To Do</span>`;
+}
+
+function renderMeetingSelect() {
+  const meetings = normalizeMeetings(state.meetings || DEFAULT_MEETINGS);
+  els.taskMeetingSelect.innerHTML = `<option value="">No linked meeting</option>${meetings.map((meeting) => (
+    `<option value="${escapeHtml(meeting.id)}">${escapeHtml(meeting.name)}</option>`
+  )).join("")}`;
+}
+
+function renderMeetingDashboard() {
+  state.meetings = normalizeMeetings(state.meetings || DEFAULT_MEETINGS);
+  state.tasks = normalizeTasks(state.tasks || DEFAULT_TASKS);
+  const upcoming = state.meetings.find((meeting) => meeting.status === "upcoming") || state.meetings[0];
+
+  els.upcomingMeeting.innerHTML = upcoming ? `
+    <div class="upcoming-card">
+      <div class="meeting-art"></div>
+      <div>
+        <h4>${escapeHtml(upcoming.name)}</h4>
+        <p>${escapeHtml(formatMeetingDate(upcoming))}</p>
+        <p>${escapeHtml(upcoming.location || "No location set")}</p>
+        <small>${escapeHtml(upcoming.notes || "No notes yet.")}</small>
+      </div>
+      <div class="meeting-status">
+        <span>Your Status <strong>Attending</strong></span>
+        <span>Tasks <strong>${state.tasks.filter((task) => task.meetingId === upcoming.id).length}</strong></span>
+        <button data-meeting-note="${escapeHtml(upcoming.id)}" type="button">View Meeting</button>
+      </div>
+    </div>
+  ` : `<p class="muted">No meetings yet.</p>`;
+
+  els.recentMeetings.innerHTML = state.meetings.map((meeting) => {
+    const linkedTasks = state.tasks.filter((task) => task.meetingId === meeting.id);
+    const doneTasks = linkedTasks.filter((task) => task.complete).length;
+    const statusClass = meeting.status === "missed" ? "bad" : meeting.status === "unavailable" ? "warn" : "good";
+    return `
+      <tr data-meeting-status="${escapeHtml(meeting.status)}">
+        <td>${escapeHtml(meeting.name)}</td>
+        <td>${escapeHtml(formatMeetingDate(meeting))}</td>
+        <td><span class="pill ${statusClass}">${escapeHtml(meeting.status === "upcoming" ? "Upcoming" : meeting.status)}</span></td>
+        <td>-</td>
+        <td>${doneTasks} / ${linkedTasks.length}</td>
+        <td><button data-meeting-note="${escapeHtml(meeting.id)}" type="button">View</button></td>
+      </tr>
+    `;
+  }).join("");
+
+  els.taskList.innerHTML = state.tasks.map((task) => {
+    const meeting = meetingById(task.meetingId);
+    return `
+      <li data-task-id="${escapeHtml(task.id)}" data-task-owner="${escapeHtml(task.owner)}" data-task-status="${escapeHtml(task.status)}" class="${task.complete ? "is-complete" : ""}">
+        <input type="checkbox" ${task.complete ? "checked" : ""} />
+        <span>${escapeHtml(task.name)}</span>
+        ${taskPill(task.status, task.complete)}
+        ${meeting ? `<small>${escapeHtml(meeting.name)}</small>` : ""}
+      </li>
+    `;
+  }).join("");
+
+  renderMeetingSelect();
+}
+
 function showMeetingView(view) {
   meetingView = view;
   els.meetingDashboard.classList.toggle("is-hidden", view !== "dashboard");
   els.teamDirectory.classList.toggle("is-hidden", view !== "team-directory");
   renderTeamDirectory();
+  renderMeetingDashboard();
 }
 
 function renderTeamDirectory() {
@@ -1207,20 +1347,15 @@ function handleMeetingAction(action) {
   }
 
   if (action === "new-meeting") {
-    const name = prompt("Meeting name");
-    if (!name) return;
-    const date = prompt("Date and time", "Friday, 30 May 2025 - 7:00 PM (BST)");
-    if (!date) return;
-    alert(`Meeting draft created:\n${name}\n${date}`);
+    els.meetingForm.reset();
+    els.meetingDialog.showModal();
     return;
   }
 
   if (action === "new-task") {
-    const task = prompt("Task name");
-    if (!task) return;
-    const list = els.meetings.querySelector(".task-list");
-    list?.insertAdjacentHTML("afterbegin", `<li data-task-owner="mine" data-task-status="todo"><input type="checkbox" /> ${escapeHtml(task)} <span class="pill todo">To Do</span></li>`);
-    alert(`Task added for ${user}.`);
+    renderMeetingSelect();
+    els.taskForm.reset();
+    els.taskDialog.showModal();
     return;
   }
 
@@ -1334,7 +1469,8 @@ els.meetings.addEventListener("click", (event) => {
 
   const note = event.target.closest("[data-meeting-note]");
   if (note) {
-    alert(`${note.dataset.meetingNote}\nNotes are available from this row.`);
+    const meeting = meetingById(note.dataset.meetingNote);
+    if (meeting) alert(`${meeting.name}\n${formatMeetingDate(meeting)}\n${meeting.location || "No location set"}\n\n${meeting.notes || "No notes yet."}`);
     return;
   }
 
@@ -1354,11 +1490,64 @@ els.teamMemberForm.addEventListener("submit", (event) => {
   renderTeamDirectory();
 });
 
+document.querySelector("[data-close-meeting-dialog]").addEventListener("click", () => {
+  els.meetingDialog.close();
+});
+
+document.querySelector("[data-close-task-dialog]").addEventListener("click", () => {
+  els.taskDialog.close();
+});
+
+els.meetingForm.addEventListener("submit", (event) => {
+  event.preventDefault();
+  const form = Object.fromEntries(new FormData(els.meetingForm).entries());
+  const meeting = {
+    id: `meeting:${crypto.randomUUID()}`,
+    name: String(form.name || "").trim(),
+    date: form.date || "",
+    time: form.time || "",
+    location: form.location || "",
+    notes: form.notes || "",
+    status: "upcoming"
+  };
+  if (!meeting.name) return;
+  state.meetings = normalizeMeetings([...(state.meetings || []), meeting]);
+  saveState();
+  els.meetingDialog.close();
+  renderMeetingDashboard();
+});
+
+els.taskForm.addEventListener("submit", (event) => {
+  event.preventDefault();
+  const form = Object.fromEntries(new FormData(els.taskForm).entries());
+  const task = {
+    id: `task:${crypto.randomUUID()}`,
+    name: String(form.name || "").trim(),
+    description: form.description || "",
+    dueDate: form.dueDate || "",
+    meetingId: form.meetingId || "",
+    owner: "mine",
+    status: "todo",
+    complete: false
+  };
+  if (!task.name) return;
+  state.tasks = normalizeTasks([...(state.tasks || []), task]);
+  saveState();
+  els.taskDialog.close();
+  renderMeetingDashboard();
+});
+
 els.meetings.addEventListener("change", (event) => {
   const checkbox = event.target.closest(".task-list input[type='checkbox']");
   if (!checkbox) return;
   const task = checkbox.closest("li");
   task?.classList.toggle("is-complete", checkbox.checked);
+  const savedTask = state.tasks.find((entry) => entry.id === task?.dataset.taskId);
+  if (savedTask) {
+    savedTask.complete = checkbox.checked;
+    saveState();
+    renderMeetingDashboard();
+  }
 });
 
 [els.search, els.listSearch, els.favoriteSearch].forEach((input) => {
