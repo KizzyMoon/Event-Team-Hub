@@ -383,6 +383,7 @@ function saveItemOverride(item) {
     kind: item.kind,
     tags: item.tags || [],
     blacklisted: Boolean(item.blacklisted),
+    price: item.price || "",
     notes: item.notes || ""
   };
 }
@@ -633,6 +634,7 @@ function openItemEditor(item) {
   els.itemForm.elements.kind.value = item.kind || "object";
   els.itemForm.elements.kind.disabled = false;
   els.itemForm.elements.image.value = currentImage && !String(currentImage).startsWith("data:") ? currentImage : "";
+  els.itemForm.elements.price.value = item.price || "";
   els.itemForm.elements.notes.value = item.notes || "";
   els.itemDelete.classList.remove("is-hidden");
   resetImageUploadLabel(currentImage ? "Current image saved. Drop, paste, or choose to replace it." : undefined);
@@ -704,7 +706,7 @@ function renderCategories(options = {}) {
     activeCategory = "All";
   }
 
-  const chipMode = activeTab === "items" || activeTab === "weapons";
+  const chipMode = activeTab === "items" || activeTab === "vehicles" || activeTab === "weapons";
   els.categories.classList.toggle("is-hidden", chipMode);
   els.categoryChips.classList.toggle("is-hidden", !chipMode);
 
@@ -755,14 +757,16 @@ function renderCard(item, options = {}) {
     ? `<button data-edit-item="${escapeHtml(item.id)}" type="button">Edit</button>`
     : "";
   const thumb = renderThumb(item);
+  const price = item.kind === "item" && item.price ? `<span class="card-price">$${escapeHtml(item.price)}</span>` : "";
   return `
-    <article class="card ${item.kind === "weapon" ? "weapon-card" : ""} ${item.blacklisted ? "is-blacklisted" : ""}" data-item-id="${escapeHtml(item.id)}">
+    <article class="card ${item.kind === "weapon" ? "weapon-card" : ""} ${item.kind === "item" ? "item-card" : ""} ${item.blacklisted ? "is-blacklisted" : ""}" data-item-id="${escapeHtml(item.id)}">
       <button class="favorite-button ${isFavorite(item.id) ? "active" : ""}" data-toggle-favorite="${escapeHtml(item.id)}" type="button" aria-label="${isFavorite(item.id) ? "Remove favorite" : "Add favorite"}">&#9733;</button>
       ${thumb}
       <h3>${escapeHtml(item.name)}</h3>
       <div class="card-code">${escapeHtml(item.code)}</div>
       <div class="tag-row">
         ${visibleTags(item).map((tag) => `<span class="tag">${escapeHtml(tag)}</span>`).join("")}
+        ${price}
       </div>
       ${options.removeFromList ? `<div class="card-actions"><button class="card-remove" data-remove-from-list="${escapeHtml(item.id)}" type="button">Remove</button></div>` : ""}
       <div class="card-bottom-actions">
@@ -1385,6 +1389,7 @@ els.itemForm.addEventListener("submit", async (event) => {
       existingItem.image = existingItem.image || "";
     }
     existingItem.tags = form.tags ? [form.tags] : [];
+    existingItem.price = form.price ? String(form.price).replace(/[^\d]/g, "") : "";
     existingItem.notes = form.notes || "";
     saveItemOverride(existingItem);
   } else {
@@ -1400,6 +1405,7 @@ els.itemForm.addEventListener("submit", async (event) => {
       image,
       tags: form.tags ? [form.tags] : [],
       blacklisted: false,
+      price: form.price ? String(form.price).replace(/[^\d]/g, "") : "",
       notes: form.notes || ""
     };
     state.items.unshift(item);
