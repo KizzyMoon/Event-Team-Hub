@@ -3,6 +3,7 @@ const STORAGE_KEY = "hlet-hub-v1";
 const SESSION_KEY = "hlet-session-v1";
 const PAGE_SIZE = 120;
 const EMPTY_TAG_STATE = { object: [], item: [], vehicle: [], weapon: [] };
+const DEFAULT_TEAM_MEMBERS = ["Licora", "Kai", "Maya", "Jax", "Aria", "Ryn", "Nova"];
 const ITEM_CATEGORIES = [
   "Ammo",
   "Blueprints",
@@ -71,6 +72,7 @@ let editingTags = [];
 let editingItemId = "";
 let pendingImageData = "";
 let storedImages = {};
+let meetingView = "dashboard";
 
 const els = {
   loginView: document.querySelector("[data-login-view]"),
@@ -90,6 +92,11 @@ const els = {
   favoriteItems: document.querySelector("[data-favorite-items]"),
   lists: document.querySelector("[data-lists]"),
   meetings: document.querySelector("[data-meetings]"),
+  meetingDashboard: document.querySelector("[data-meeting-dashboard]"),
+  teamDirectory: document.querySelector("[data-team-directory]"),
+  teamDirectoryGrid: document.querySelector("[data-team-directory-grid]"),
+  teamMemberForm: document.querySelector("[data-team-member-form]"),
+  teamMemberCount: document.querySelector("[data-team-member-count]"),
   settings: document.querySelector("[data-settings]"),
   search: document.querySelector("[data-search]"),
   categories: document.querySelector("[data-categories]"),
@@ -134,6 +141,7 @@ function loadState() {
       parsed.itemOverrides = parsed.itemOverrides || {};
       parsed.customTags = { ...EMPTY_TAG_STATE, ...(parsed.customTags || {}) };
       parsed.deletedTags = { ...EMPTY_TAG_STATE, ...(parsed.deletedTags || {}) };
+      parsed.teamMembers = normalizeTeamMembers(parsed.teamMembers || DEFAULT_TEAM_MEMBERS);
       parsed.lists = removeSeededLists(parsed.lists || []);
       return mergeSeedItems(parsed);
     } catch (error) {
@@ -149,8 +157,14 @@ function loadState() {
     deletedTags: { ...EMPTY_TAG_STATE },
     favoritesByUser: {},
     deletedItemIds: [],
+    teamMembers: [...DEFAULT_TEAM_MEMBERS],
     lists: []
   };
+}
+
+function normalizeTeamMembers(members = []) {
+  return [...new Set(members.map((name) => String(name || "").trim()).filter(Boolean))]
+    .sort((a, b) => sortText(a, b));
 }
 
 function removeSeededLists(lists = []) {
@@ -210,6 +224,7 @@ function saveState() {
     deletedTags: { ...EMPTY_TAG_STATE, ...(state.deletedTags || {}) },
     favoritesByUser: state.favoritesByUser || {},
     deletedItemIds: state.deletedItemIds || [],
+    teamMembers: normalizeTeamMembers(state.teamMembers || DEFAULT_TEAM_MEMBERS),
     lists: state.lists || []
   };
   try {
@@ -1105,6 +1120,7 @@ function renderAll(options = {}) {
   renderFavorites();
   renderLists();
   renderSettings();
+  renderTeamDirectory();
 }
 
 function setTab(tab) {
@@ -1129,6 +1145,7 @@ function setTab(tab) {
   els.lists.classList.toggle("is-hidden", !listMode);
   els.meetings.classList.toggle("is-hidden", !meetingsMode);
   els.settings.classList.toggle("is-hidden", !settingsMode);
+  if (meetingsMode) showMeetingView(meetingView);
   renderAll();
 }
 
@@ -1151,16 +1168,43 @@ function filterTaskRows(filter) {
   });
 }
 
+function showMeetingView(view) {
+  meetingView = view;
+  els.meetingDashboard.classList.toggle("is-hidden", view !== "dashboard");
+  els.teamDirectory.classList.toggle("is-hidden", view !== "team-directory");
+  renderTeamDirectory();
+}
+
+function renderTeamDirectory() {
+  state.teamMembers = normalizeTeamMembers(state.teamMembers || DEFAULT_TEAM_MEMBERS);
+  els.teamMemberCount.textContent = `${state.teamMembers.length} member${state.teamMembers.length === 1 ? "" : "s"}`;
+  els.teamDirectoryGrid.innerHTML = state.teamMembers.map((name) => `
+    <article class="team-member-card">
+      <span>${escapeHtml(name)}</span>
+      <button data-remove-team-member="${escapeHtml(name)}" type="button" aria-label="Remove ${escapeHtml(name)}">Remove</button>
+    </article>
+  `).join("");
+}
+
 function handleMeetingAction(action) {
   const user = currentUser()?.name || "you";
   const messages = {
     "view-upcoming": "Halloween Event Planning\nFriday, 30 May 2025 at 7:00 PM (BST)\nLocation: Event Room 1\nNotes: Discuss themes, activities, and staff roles.",
-    "team-directory": "Team Directory\nLicora, Kai, Maya, Jax, Aria, Ryn, Nova",
     "event-calendar": "Event Calendar view is ready for the next build. For now, upcoming meetings and recent meetings are shown on this page.",
     templates: "Templates & Resources\nMeeting notes, event plan checklist, attendance sheet, and task tracker.",
     "attendance-dashboard": "Attendance Dashboard\nLicora 96%, Kai 88%, Maya 83%, Jax 75%, Aria 63%, Ryn 50%, Nova 38%.",
     "full-archive": "Meeting Archive\n2025: 12 meetings\n2024: 18 meetings\n2023: 9 meetings"
   };
+
+  if (action === "team-directory") {
+    showMeetingView("team-directory");
+    return;
+  }
+
+  if (action === "dashboard") {
+    showMeetingView("dashboard");
+    return;
+  }
 
   if (action === "new-meeting") {
     const name = prompt("Meeting name");
@@ -1258,6 +1302,16 @@ els.settingsPanels.addEventListener("submit", (event) => {
 });
 
 els.meetings.addEventListener("click", (event) => {
+  const removeMember = event.target.closest("[data-remove-team-member]");
+  if (removeMember) {
+    const name = removeMember.dataset.removeTeamMember;
+    if (!confirm(`Remove ${name} from the team directory?`)) return;
+    state.teamMembers = normalizeTeamMembers((state.teamMembers || []).filter((member) => member !== name));
+    saveState();
+    renderTeamDirectory();
+    return;
+  }
+
   const meetingFilter = event.target.closest("[data-meeting-filter]");
   if (meetingFilter) {
     setActiveButton(meetingFilter, "[data-meeting-filter]");
@@ -1288,6 +1342,16 @@ els.meetings.addEventListener("click", (event) => {
   if (archive) {
     alert(`${archive.dataset.meetingArchive} archive selected.`);
   }
+});
+
+els.teamMemberForm.addEventListener("submit", (event) => {
+  event.preventDefault();
+  const name = String(new FormData(els.teamMemberForm).get("name") || "").trim();
+  if (!name) return;
+  state.teamMembers = normalizeTeamMembers([...(state.teamMembers || []), name]);
+  saveState();
+  els.teamMemberForm.reset();
+  renderTeamDirectory();
 });
 
 els.meetings.addEventListener("change", (event) => {

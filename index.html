@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Events Team Hub</title>
-    <link rel="stylesheet" href="hlet-styles.css?v=compact-items-mods-prices-20260705" />
+    <link rel="stylesheet" href="hlet-styles.css?v=team-directory-20260705" />
   </head>
   <body>
     <section class="login-view" data-login-view>
@@ -118,7 +118,22 @@
           <button data-meeting-action="team-directory" type="button">Team Directory</button>
         </div>
 
-        <div class="meeting-layout">
+        <section class="team-directory is-hidden" data-team-directory>
+          <div class="section-head">
+            <div>
+              <h2>Team Directory</h2>
+              <span data-team-member-count>0 members</span>
+            </div>
+            <button data-meeting-action="dashboard" type="button">Back to meetings</button>
+          </div>
+          <form class="team-member-form" data-team-member-form>
+            <input name="name" placeholder="Team member name..." required />
+            <button type="submit">Add member</button>
+          </form>
+          <div class="team-directory-grid" data-team-directory-grid></div>
+        </section>
+
+        <div class="meeting-layout" data-meeting-dashboard>
           <div class="meeting-main">
             <div class="meeting-stats">
               <article class="meeting-panel stat-panel">
@@ -292,7 +307,7 @@
       </form>
     </dialog>
 
-    <script src="hlet-data.js?v=reward-boxes-20260705"></script>
-    <script src="hlet-app.js?v=reward-boxes-20260705"></script>
+    <script src="hlet-data.js?v=team-directory-20260705"></script>
+    <script src="hlet-app.js?v=team-directory-20260705"></script>
   </body>
 </html>

@@ -603,6 +603,53 @@ nav span {
   font-size: 0.82rem;
 }
 
+.team-directory {
+  display: grid;
+  gap: 14px;
+}
+
+.team-member-form {
+  display: grid;
+  grid-template-columns: minmax(180px, 360px) auto;
+  gap: 8px;
+  align-items: center;
+}
+
+.team-member-form input,
+.team-member-form button {
+  min-height: 34px;
+}
+
+.team-directory-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  gap: 10px;
+}
+
+.team-member-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-height: 58px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: var(--panel);
+}
+
+.team-member-card span {
+  font-weight: 900;
+}
+
+.team-member-card button {
+  min-height: 28px;
+  padding: 4px 8px;
+  border-color: var(--red);
+  color: #ffb9bf;
+  font-size: 0.72rem;
+}
+
 .meeting-layout {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 420px;
