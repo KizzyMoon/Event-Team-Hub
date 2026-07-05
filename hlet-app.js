@@ -150,10 +150,32 @@ function mergeSeedItems(savedState) {
   };
 }
 
+function compactSavedImage(id, image) {
+  const imageValue = String(image || "");
+  if (!imageValue.startsWith("data:")) return image || "";
+  return storedImages[id] ? `idb:${id}` : "";
+}
+
+function compactSavedItem(item) {
+  const copy = { ...item };
+  copy.image = compactSavedImage(copy.id, copy.image);
+  return copy;
+}
+
+function compactSavedOverrides(overrides = {}) {
+  return Object.fromEntries(Object.entries(overrides).map(([id, override]) => {
+    const copy = { ...override };
+    if (Object.prototype.hasOwnProperty.call(copy, "image")) {
+      copy.image = compactSavedImage(id, copy.image);
+    }
+    return [id, copy];
+  }));
+}
+
 function saveState() {
   const savedState = {
-    customItems: state.customItems || [],
-    itemOverrides: state.itemOverrides || {},
+    customItems: (state.customItems || []).map(compactSavedItem),
+    itemOverrides: compactSavedOverrides(state.itemOverrides || {}),
     customTags: state.customTags || { object: [], vehicle: [], weapon: [] },
     deletedTags: state.deletedTags || { object: [], vehicle: [], weapon: [] },
     favoritesByUser: state.favoritesByUser || {},
@@ -162,9 +184,11 @@ function saveState() {
   };
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(savedState));
+    return true;
   } catch (error) {
     console.error("Could not save Events Team Hub data.", error);
-    alert("Your browser could not save this change because its local storage is full. Nothing was wiped. Remove a few uploaded images or use smaller images, then try again.");
+    alert("This change could not be saved in your browser. Try refreshing once, then make the tag change again.");
+    return false;
   }
 }
 
@@ -229,6 +253,19 @@ async function loadStoredImages() {
   } catch (error) {
     console.warn("Uploaded image storage is unavailable.", error);
   }
+}
+
+async function migrateEmbeddedImages() {
+  const itemsWithImages = state.items.filter((item) => String(item.image || "").startsWith("data:"));
+  if (!itemsWithImages.length) return;
+  for (const item of itemsWithImages) {
+    const saved = await saveStoredImage(item.id, item.image);
+    if (!saved) continue;
+    item.image = `idb:${item.id}`;
+    saveItemOverride(item);
+  }
+  saveState();
+  renderAll();
 }
 
 async function saveStoredImage(id, imageData) {
@@ -425,13 +462,21 @@ function deleteTagEverywhere(kind, tag) {
   state.customTags[kind] = customTagsFor(kind).filter((entry) => entry.toLowerCase() !== String(tag).toLowerCase());
 }
 
+function applySettingsTagDelete(kind, tag) {
+  rememberDeletedTag(kind, tag);
+  state.customTags[kind] = customTagsFor(kind).filter((entry) => entry.toLowerCase() !== String(tag).toLowerCase());
+  if (!saveState()) return false;
+  state.items = state.items.map((item) => item.kind === kind ? removeDeletedTagsFromItem(item) : item);
+  return true;
+}
+
 function submitSettingsTag(form) {
   const kind = form.dataset.addSettingsTag;
   const input = form.elements.tag;
   if (!kind || !input) return;
   const added = addCustomTag(kind, input.value);
   if (!added) return;
-  saveState();
+  if (!saveState()) return;
   input.value = "";
   renderAll();
 }
@@ -959,9 +1004,8 @@ els.settingsPanels.addEventListener("click", (event) => {
     const kind = deleteButton.dataset.tagKind;
     const tag = deleteButton.dataset.deleteSettingsTag;
     if (!confirm(`Delete tag ${tag} from all ${kind}s?`)) return;
-    deleteTagEverywhere(kind, tag);
+    if (!applySettingsTagDelete(kind, tag)) return;
     if (activeCategory === tag) activeCategory = "All";
-    saveState();
     renderAll();
   }
 });
@@ -1218,5 +1262,5 @@ document.querySelector("[data-delete-list]").addEventListener("click", () => {
   renderAll();
 });
 
-loadStoredImages();
+loadStoredImages().then(migrateEmbeddedImages);
 if (currentUser()) showApp();
