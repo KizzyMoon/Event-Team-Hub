@@ -711,7 +711,7 @@ function renderCard(item, options = {}) {
     : "";
   const thumb = renderThumb(item);
   return `
-    <article class="card ${item.kind === "weapon" ? "weapon-card" : ""}" data-item-id="${escapeHtml(item.id)}">
+    <article class="card ${item.kind === "weapon" ? "weapon-card" : ""} ${item.blacklisted ? "is-blacklisted" : ""}" data-item-id="${escapeHtml(item.id)}">
       <button class="favorite-button ${isFavorite(item.id) ? "active" : ""}" data-toggle-favorite="${escapeHtml(item.id)}" type="button" aria-label="${isFavorite(item.id) ? "Remove favorite" : "Add favorite"}">&#9733;</button>
       ${thumb}
       <h3>${escapeHtml(item.name)}</h3>

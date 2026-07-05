@@ -291,6 +291,11 @@ nav span {
   box-shadow: 0 0 0 1px rgba(196, 123, 255, 0.45);
 }
 
+.card.is-blacklisted {
+  border-color: var(--red);
+  box-shadow: 0 0 0 1px rgba(255, 92, 103, 0.38);
+}
+
 .load-more-card {
   min-height: 134px;
   border-color: var(--accent);
