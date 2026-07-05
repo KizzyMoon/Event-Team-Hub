@@ -90,6 +90,9 @@ let meetingView = "dashboard";
 let calendarDate = new Date();
 let selectedMeetingId = "";
 let selectedTaskId = "";
+let editingMeetingId = "";
+let editingTaskId = "";
+let editingMeetingType = "meeting";
 
 const els = {
   loginView: document.querySelector("[data-login-view]"),
@@ -115,12 +118,19 @@ const els = {
   teamMemberForm: document.querySelector("[data-team-member-form]"),
   teamMemberCount: document.querySelector("[data-team-member-count]"),
   meetingForm: document.querySelector("[data-meeting-form]"),
+  meetingFormTitle: document.querySelector("[data-meeting-form-title]"),
   meetingDialog: document.querySelector("[data-meeting-dialog]"),
   taskForm: document.querySelector("[data-task-form]"),
+  taskFormTitle: document.querySelector("[data-task-form-title]"),
   taskDialog: document.querySelector("[data-task-dialog]"),
   taskMeetingSelect: document.querySelector("[data-task-meeting-select]"),
   upcomingMeeting: document.querySelector("[data-upcoming-meeting]"),
   recentMeetings: document.querySelector("[data-recent-meetings]"),
+  overallAttendance: document.querySelector("[data-overall-attendance]"),
+  overallAttendanceBar: document.querySelector("[data-overall-attendance-bar]"),
+  overallAttendanceNote: document.querySelector("[data-overall-attendance-note]"),
+  meetingsMonthCount: document.querySelector("[data-meetings-month-count]"),
+  meetingsMonthSummary: document.querySelector("[data-meetings-month-summary]"),
   taskList: document.querySelector("[data-task-list]"),
   taskProgressCount: document.querySelector("[data-task-progress-count]"),
   taskOverdueCount: document.querySelector("[data-task-overdue-count]"),
@@ -141,6 +151,9 @@ const els = {
   allTasksDialog: document.querySelector("[data-all-tasks-dialog]"),
   allTasksSubtitle: document.querySelector("[data-all-tasks-subtitle]"),
   allTasksContent: document.querySelector("[data-all-tasks-content]"),
+  allMeetingsDialog: document.querySelector("[data-all-meetings-dialog]"),
+  allMeetingsSubtitle: document.querySelector("[data-all-meetings-subtitle]"),
+  allMeetingsContent: document.querySelector("[data-all-meetings-content]"),
   messageDialog: document.querySelector("[data-message-dialog]"),
   messageForm: document.querySelector("[data-message-form]"),
   messageTitle: document.querySelector("[data-message-title]"),
@@ -292,7 +305,9 @@ function normalizeMeetings(meetings = []) {
       time: meeting.time || "",
       location: meeting.location || "",
       notes: meeting.notes || "",
-      status: meeting.status || "upcoming"
+      status: meeting.status || "upcoming",
+      type: meeting.type || "meeting",
+      attendance: meeting.attendance || {}
     }))
     .filter((meeting) => meeting.name)
     .sort((a, b) => `${b.date} ${b.time}`.localeCompare(`${a.date} ${a.time}`));
@@ -1428,21 +1443,60 @@ function taskPill(status, complete = false) {
   return "";
 }
 
+function effectiveTaskStatus(task) {
+  if (task.complete) return "done";
+  if (task.status === "overdue") return "overdue";
+  if (task.dueDate && task.dueDate < todayDateString()) return "overdue";
+  return task.status || "todo";
+}
+
 function taskDueText(task) {
   if (!task.dueDate) return "No due date";
   const date = new Date(`${task.dueDate}T00:00`);
   return Number.isNaN(date.getTime()) ? task.dueDate : date.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
 }
 
-function attendanceForMember(name, index) {
-  const key = [...String(name || "")].reduce((total, char) => total + char.charCodeAt(0), 0);
-  return Math.max(38, Math.min(96, 96 - ((index * 8 + key) % 59)));
+function todayDateString() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function isUpcomingMeeting(meeting) {
+  return meeting.status === "upcoming" && (!meeting.date || meeting.date >= todayDateString());
+}
+
+function meetingAttendanceEntries() {
+  return (state.meetings || []).filter((meeting) => meeting.date && meeting.date >= dateDaysAgo(30) && meeting.date <= todayDateString());
+}
+
+function dateDaysAgo(days) {
+  const date = new Date();
+  date.setDate(date.getDate() - days);
+  return date.toISOString().slice(0, 10);
+}
+
+function attendanceForMember(name) {
+  const meetings = meetingAttendanceEntries();
+  if (!meetings.length) return 0;
+  const attended = meetings.filter((meeting) => {
+    if (meeting.attendance && Object.prototype.hasOwnProperty.call(meeting.attendance, name)) {
+      return meeting.attendance[name] === "attended";
+    }
+    return meeting.status === "attended";
+  }).length;
+  return Math.round((attended / meetings.length) * 100);
+}
+
+function overallAttendance() {
+  const members = normalizeTeamMembers(state.teamMembers || []);
+  if (!members.length) return 0;
+  const total = members.reduce((sum, member) => sum + attendanceForMember(member), 0);
+  return Math.round(total / members.length);
 }
 
 function renderAttendanceOverview() {
-  const members = normalizeTeamMembers(state.teamMembers || DEFAULT_TEAM_MEMBERS);
-  els.attendanceList.innerHTML = members.length ? members.map((name, index) => {
-    const value = attendanceForMember(name, index);
+  const members = normalizeTeamMembers(state.teamMembers || []);
+  els.attendanceList.innerHTML = members.length ? members.map((name) => {
+    const value = attendanceForMember(name);
     return `<span>${escapeHtml(name)} <b><i style="width: ${value}%"></i></b><em>${value}%</em></span>`;
   }).join("") : `<span class="muted">No team members yet</span>`;
 }
@@ -1454,17 +1508,54 @@ function renderMeetingSelect() {
   )).join("")}`;
 }
 
+function openMeetingForm(meeting = null, type = "meeting") {
+  editingMeetingId = meeting?.id || "";
+  editingMeetingType = meeting?.type || type;
+  els.meetingForm.reset();
+  els.meetingFormTitle.textContent = editingMeetingId ? `Edit ${editingMeetingType}` : `New ${editingMeetingType}`;
+  els.meetingForm.elements.name.value = meeting?.name || "";
+  els.meetingForm.elements.date.value = meeting?.date || "";
+  els.meetingForm.elements.time.value = meeting?.time || "";
+  els.meetingForm.elements.location.value = meeting?.location || "";
+  els.meetingForm.elements.notes.value = meeting?.notes || "";
+  els.meetingDialog.showModal();
+}
+
+function openTaskForm(task = null) {
+  editingTaskId = task?.id || "";
+  renderMeetingSelect();
+  els.taskForm.reset();
+  els.taskFormTitle.textContent = editingTaskId ? "Edit task" : "New task";
+  els.taskForm.elements.name.value = task?.name || "";
+  els.taskForm.elements.description.value = task?.description || "";
+  els.taskForm.elements.dueDate.value = task?.dueDate || "";
+  els.taskForm.elements.meetingId.value = task?.meetingId || "";
+  els.taskDialog.showModal();
+}
+
 function renderMeetingDashboard() {
   state.meetings = normalizeMeetings(state.meetings || DEFAULT_MEETINGS);
   state.tasks = normalizeTasks(state.tasks || DEFAULT_TASKS);
-  const upcoming = state.meetings.find((meeting) => meeting.status === "upcoming") || state.meetings[0];
+  const upcoming = state.meetings
+    .filter(isUpcomingMeeting)
+    .sort((a, b) => `${a.date} ${a.time}`.localeCompare(`${b.date} ${b.time}`))[0];
   const activeTasks = state.tasks.filter((task) => !task.complete);
-  const overdueTasks = activeTasks.filter((task) => task.status === "overdue");
+  const overdueTasks = activeTasks.filter((task) => effectiveTaskStatus(task) === "overdue");
+  const currentMonth = todayDateString().slice(0, 7);
+  const thisMonthMeetings = state.meetings.filter((meeting) => String(meeting.date || "").startsWith(currentMonth));
+  const monthUpcoming = thisMonthMeetings.filter(isUpcomingMeeting).length;
+  const monthCompleted = thisMonthMeetings.length - monthUpcoming;
+  const attendance = overallAttendance();
 
   els.taskProgressCount.textContent = activeTasks.length.toLocaleString();
   els.taskOverdueCount.textContent = `${overdueTasks.length.toLocaleString()} overdue`;
   els.taskOverdueCount.classList.toggle("danger-text", overdueTasks.length > 0);
   els.taskOverdueCount.classList.toggle("muted", overdueTasks.length === 0);
+  els.overallAttendance.textContent = `${attendance}%`;
+  els.overallAttendanceBar.style.width = `${attendance}%`;
+  els.overallAttendanceNote.textContent = attendance ? "Based on saved meetings and team members." : "No attendance logged yet.";
+  els.meetingsMonthCount.textContent = thisMonthMeetings.length.toLocaleString();
+  els.meetingsMonthSummary.textContent = `${monthUpcoming.toLocaleString()} upcoming + ${monthCompleted.toLocaleString()} completed`;
   renderAttendanceOverview();
 
   els.upcomingMeeting.innerHTML = upcoming ? `
@@ -1482,9 +1573,9 @@ function renderMeetingDashboard() {
         <button data-meeting-note="${escapeHtml(upcoming.id)}" type="button">View Meeting</button>
       </div>
     </div>
-  ` : `<p class="muted">No meetings yet.</p>`;
+  ` : `<p class="muted">No upcoming meetings or events.</p>`;
 
-  els.recentMeetings.innerHTML = state.meetings.map((meeting) => {
+  els.recentMeetings.innerHTML = state.meetings.slice(0, 8).map((meeting) => {
     const linkedTasks = state.tasks.filter((task) => task.meetingId === meeting.id);
     const doneTasks = linkedTasks.filter((task) => task.complete).length;
     const statusClass = meeting.status === "missed" ? "bad" : meeting.status === "unavailable" ? "warn" : "good";
@@ -1493,9 +1584,12 @@ function renderMeetingDashboard() {
         <td>${escapeHtml(meeting.name)}</td>
         <td>${escapeHtml(formatMeetingDate(meeting))}</td>
         <td><span class="pill ${statusClass}">${escapeHtml(meeting.status === "upcoming" ? "Upcoming" : meeting.status)}</span></td>
-        <td>-</td>
+        <td>${escapeHtml(meeting.attendance ? `${Object.keys(meeting.attendance).length} logged` : "-")}</td>
         <td>${doneTasks} / ${linkedTasks.length}</td>
-        <td><button data-meeting-note="${escapeHtml(meeting.id)}" type="button">View</button></td>
+        <td>
+          <button data-meeting-note="${escapeHtml(meeting.id)}" type="button">View</button>
+          <button data-edit-meeting="${escapeHtml(meeting.id)}" type="button">Edit</button>
+        </td>
       </tr>
     `;
   }).join("");
@@ -1503,11 +1597,11 @@ function renderMeetingDashboard() {
   els.taskList.innerHTML = state.tasks.map((task) => {
     const meeting = meetingById(task.meetingId);
     return `
-      <li data-task-id="${escapeHtml(task.id)}" data-task-owner="${escapeHtml(task.owner)}" data-task-status="${escapeHtml(task.status)}" class="${task.complete ? "is-complete" : ""}">
+      <li data-task-id="${escapeHtml(task.id)}" data-task-owner="${escapeHtml(task.owner)}" data-task-status="${escapeHtml(effectiveTaskStatus(task))}" class="${task.complete ? "is-complete" : ""}">
         <input type="checkbox" ${task.complete ? "checked" : ""} />
         <button class="task-link" data-open-task="${escapeHtml(task.id)}" type="button">${escapeHtml(task.name)}</button>
         <small>${escapeHtml(taskDueText(task))}</small>
-        ${taskPill(task.status, task.complete)}
+        ${taskPill(effectiveTaskStatus(task), task.complete)}
         ${meeting ? `<small>${escapeHtml(meeting.name)}</small>` : ""}
       </li>
     `;
@@ -1540,17 +1634,69 @@ function openMeetingArchive(year = "") {
         <div class="archive-detail-meta">
           <span class="pill ${statusClass}">${escapeHtml(meeting.status)}</span>
           <span>${doneTasks} / ${linkedTasks.length} tasks complete</span>
+          <button data-edit-meeting="${escapeHtml(meeting.id)}" type="button">Edit</button>
           <button data-delete-meeting="${escapeHtml(meeting.id)}" type="button">Delete</button>
         </div>
         ${linkedTasks.length ? `
           <ul>
-            ${linkedTasks.map((task) => `<li>${escapeHtml(task.name)} ${taskPill(task.status, task.complete)}</li>`).join("")}
+            ${linkedTasks.map((task) => `<li>${escapeHtml(task.name)} ${taskPill(effectiveTaskStatus(task), task.complete)}</li>`).join("")}
           </ul>
         ` : `<small class="muted">No linked tasks.</small>`}
       </article>
     `;
   }).join("") : `<p class="muted">No previous meetings found for this archive.</p>`;
-  els.archiveDialog.showModal();
+  if (!els.archiveDialog.open) els.archiveDialog.showModal();
+}
+
+function openAttendanceDashboard() {
+  const members = normalizeTeamMembers(state.teamMembers || []);
+  els.archiveTitle.textContent = "Attendance Dashboard";
+  els.archiveSubtitle.textContent = `${members.length} team member${members.length === 1 ? "" : "s"}`;
+  els.archiveContent.innerHTML = members.length ? members.map((name) => {
+    const value = attendanceForMember(name);
+    return `
+      <article class="archive-detail-card">
+        <div>
+          <h4>${escapeHtml(name)}</h4>
+          <span>${value}% attendance over the last 30 days</span>
+        </div>
+        <div class="mini-bar"><span style="width: ${value}%"></span></div>
+      </article>
+    `;
+  }).join("") : `<p class="muted">No team members yet.</p>`;
+  if (!els.archiveDialog.open) els.archiveDialog.showModal();
+}
+
+function meetingDetailCard(meeting) {
+  const linkedTasks = state.tasks.filter((task) => task.meetingId === meeting.id);
+  const doneTasks = linkedTasks.filter((task) => task.complete).length;
+  const statusClass = meeting.status === "missed" ? "bad" : meeting.status === "unavailable" ? "warn" : "good";
+  return `
+    <article class="archive-detail-card">
+      <div>
+        <h4><button class="task-link" data-meeting-note="${escapeHtml(meeting.id)}" type="button">${escapeHtml(meeting.name)}</button></h4>
+        <span>${escapeHtml(formatMeetingDate(meeting))}</span>
+        <span>${escapeHtml(meeting.location || "No location set")}</span>
+      </div>
+      <p>${escapeHtml(meeting.notes || "No notes saved.")}</p>
+      <div class="archive-detail-meta">
+        <span class="pill ${statusClass}">${escapeHtml(meeting.status)}</span>
+        <span>${doneTasks} / ${linkedTasks.length} tasks complete</span>
+        <button data-edit-meeting="${escapeHtml(meeting.id)}" type="button">Edit</button>
+        <button data-delete-meeting="${escapeHtml(meeting.id)}" type="button">Delete</button>
+      </div>
+    </article>
+  `;
+}
+
+function openAllMeetings() {
+  state.meetings = normalizeMeetings(state.meetings || DEFAULT_MEETINGS);
+  state.tasks = normalizeTasks(state.tasks || DEFAULT_TASKS);
+  els.allMeetingsSubtitle.textContent = `${state.meetings.length} saved meeting/event${state.meetings.length === 1 ? "" : "s"}`;
+  els.allMeetingsContent.innerHTML = state.meetings.length
+    ? state.meetings.map(meetingDetailCard).join("")
+    : `<p class="muted">No meetings or events yet.</p>`;
+  if (!els.allMeetingsDialog.open) els.allMeetingsDialog.showModal();
 }
 
 function openMeetingDetail(id) {
@@ -1578,7 +1724,7 @@ function openTaskDetail(id) {
     <p><strong>Description:</strong> ${escapeHtml(task.description || "No description.")}</p>
     <p><strong>Due date:</strong> ${escapeHtml(taskDueText(task))}</p>
     <p><strong>Meeting/Event:</strong> ${escapeHtml(meeting?.name || "No linked meeting")}</p>
-    <p><strong>Status:</strong> ${task.complete ? "Complete" : task.status === "overdue" ? "Overdue" : "Open"}</p>
+    <p><strong>Status:</strong> ${task.complete ? "Complete" : effectiveTaskStatus(task) === "overdue" ? "Overdue" : "Open"}</p>
   `;
   els.taskDetailDialog.showModal();
 }
@@ -1597,14 +1743,15 @@ function openAllTasks() {
         </div>
         <p>${escapeHtml(task.description || "No description.")}</p>
         <div class="archive-detail-meta">
-          ${taskPill(task.status, task.complete)}
+          ${taskPill(effectiveTaskStatus(task), task.complete)}
           <span>${task.complete ? "Complete" : "Open"}</span>
+          <button data-edit-task="${escapeHtml(task.id)}" type="button">Edit</button>
           <button data-delete-task="${escapeHtml(task.id)}" type="button">Delete</button>
         </div>
       </article>
     `;
   }).join("") : `<p class="muted">No tasks yet.</p>`;
-  els.allTasksDialog.showModal();
+  if (!els.allTasksDialog.open) els.allTasksDialog.showModal();
 }
 
 function deleteMeeting(id) {
@@ -1612,16 +1759,19 @@ function deleteMeeting(id) {
   state.tasks = (state.tasks || []).map((task) => task.meetingId === id ? { ...task, meetingId: "" } : task);
   saveState();
   renderMeetingDashboard();
+  if (els.allMeetingsDialog.open) openAllMeetings();
+  if (els.archiveDialog.open) openMeetingArchive();
 }
 
 function deleteTask(id) {
   state.tasks = (state.tasks || []).filter((task) => task.id !== id);
   saveState();
   renderMeetingDashboard();
+  if (els.allTasksDialog.open) openAllTasks();
 }
 
 function setCalendarToBestMonth() {
-  const upcoming = normalizeMeetings(state.meetings || DEFAULT_MEETINGS).find((meeting) => meeting.status === "upcoming" && meeting.date);
+  const upcoming = normalizeMeetings(state.meetings || DEFAULT_MEETINGS).find((meeting) => isUpcomingMeeting(meeting) && meeting.date);
   const base = upcoming?.date ? new Date(`${upcoming.date}T00:00`) : new Date();
   calendarDate = Number.isNaN(base.getTime()) ? new Date() : base;
 }
@@ -1686,12 +1836,6 @@ function renderTeamDirectory() {
 }
 
 function handleMeetingAction(action) {
-  const user = currentUser()?.name || "you";
-  const messages = {
-    "view-upcoming": "Halloween Event Planning\nFriday, 30 May 2025 at 7:00 PM (BST)\nLocation: Event Room 1\nNotes: Discuss themes, activities, and staff roles.",
-    "attendance-dashboard": "Attendance Dashboard\nLicora 96%, Kai 88%, Maya 83%, Jax 75%, Aria 63%, Ryn 50%, Nova 38%."
-  };
-
   if (action === "team-directory") {
     showMeetingView("team-directory");
     return;
@@ -1703,8 +1847,12 @@ function handleMeetingAction(action) {
   }
 
   if (action === "new-meeting") {
-    els.meetingForm.reset();
-    els.meetingDialog.showModal();
+    openMeetingForm(null, "meeting");
+    return;
+  }
+
+  if (action === "new-event") {
+    openMeetingForm(null, "event");
     return;
   }
 
@@ -1714,9 +1862,7 @@ function handleMeetingAction(action) {
   }
 
   if (action === "new-task") {
-    renderMeetingSelect();
-    els.taskForm.reset();
-    els.taskDialog.showModal();
+    openTaskForm();
     return;
   }
 
@@ -1730,7 +1876,14 @@ function handleMeetingAction(action) {
     return;
   }
 
-  if (messages[action]) console.info(messages[action]);
+  if (action === "all-meetings") {
+    openAllMeetings();
+    return;
+  }
+
+  if (action === "attendance-dashboard") {
+    openAttendanceDashboard();
+  }
 }
 
 els.loginForm.addEventListener("submit", (event) => {
@@ -1844,6 +1997,13 @@ els.meetings.addEventListener("click", async (event) => {
     return;
   }
 
+  const editMeeting = event.target.closest("[data-edit-meeting]");
+  if (editMeeting) {
+    const meeting = meetingById(editMeeting.dataset.editMeeting);
+    if (meeting) openMeetingForm(meeting, meeting.type || "meeting");
+    return;
+  }
+
   const archive = event.target.closest("[data-meeting-archive]");
   if (archive) {
     openMeetingArchive(archive.dataset.meetingArchive);
@@ -1861,10 +2021,13 @@ els.teamMemberForm.addEventListener("submit", (event) => {
 });
 
 document.querySelector("[data-close-meeting-dialog]").addEventListener("click", () => {
+  editingMeetingId = "";
+  editingMeetingType = "meeting";
   els.meetingDialog.close();
 });
 
 document.querySelector("[data-close-task-dialog]").addEventListener("click", () => {
+  editingTaskId = "";
   els.taskDialog.close();
 });
 
@@ -1888,14 +2051,8 @@ document.querySelector("[data-close-all-tasks]").addEventListener("click", () =>
   els.allTasksDialog.close();
 });
 
-document.querySelector("[data-log-meeting-attendance]").addEventListener("click", () => {
-  const meeting = meetingById(selectedMeetingId);
-  if (!meeting) return;
-  meeting.status = "attended";
-  saveState();
-  renderMeetingDashboard();
-  els.meetingDetailDialog.close();
-  openMeetingDetail(meeting.id);
+document.querySelector("[data-close-all-meetings]").addEventListener("click", () => {
+  els.allMeetingsDialog.close();
 });
 
 document.querySelector("[data-delete-meeting-detail]").addEventListener("click", () => {
@@ -1904,13 +2061,33 @@ document.querySelector("[data-delete-meeting-detail]").addEventListener("click",
   els.meetingDetailDialog.close();
 });
 
+document.querySelector("[data-edit-meeting-detail]").addEventListener("click", () => {
+  const meeting = meetingById(selectedMeetingId);
+  if (!meeting) return;
+  els.meetingDetailDialog.close();
+  openMeetingForm(meeting, meeting.type || "meeting");
+});
+
 document.querySelector("[data-delete-task-detail]").addEventListener("click", () => {
   if (!selectedTaskId) return;
   deleteTask(selectedTaskId);
   els.taskDetailDialog.close();
 });
 
+document.querySelector("[data-edit-task-detail]").addEventListener("click", () => {
+  const task = state.tasks.find((entry) => entry.id === selectedTaskId);
+  if (!task) return;
+  els.taskDetailDialog.close();
+  openTaskForm(task);
+});
+
 els.archiveContent.addEventListener("click", (event) => {
+  const editButton = event.target.closest("[data-edit-meeting]");
+  if (editButton) {
+    const meeting = meetingById(editButton.dataset.editMeeting);
+    if (meeting) openMeetingForm(meeting, meeting.type || "meeting");
+    return;
+  }
   const deleteButton = event.target.closest("[data-delete-meeting]");
   if (!deleteButton) return;
   deleteMeeting(deleteButton.dataset.deleteMeeting);
@@ -1923,10 +2100,35 @@ els.allTasksContent.addEventListener("click", (event) => {
     openTaskDetail(taskLink.dataset.openTask);
     return;
   }
+  const editButton = event.target.closest("[data-edit-task]");
+  if (editButton) {
+    const task = state.tasks.find((entry) => entry.id === editButton.dataset.editTask);
+    if (task) openTaskForm(task);
+    return;
+  }
   const deleteButton = event.target.closest("[data-delete-task]");
   if (!deleteButton) return;
   deleteTask(deleteButton.dataset.deleteTask);
   openAllTasks();
+});
+
+els.allMeetingsContent.addEventListener("click", (event) => {
+  const note = event.target.closest("[data-meeting-note]");
+  if (note) {
+    const meeting = meetingById(note.dataset.meetingNote);
+    if (meeting) openMeetingDetail(meeting.id);
+    return;
+  }
+  const editButton = event.target.closest("[data-edit-meeting]");
+  if (editButton) {
+    const meeting = meetingById(editButton.dataset.editMeeting);
+    if (meeting) openMeetingForm(meeting, meeting.type || "meeting");
+    return;
+  }
+  const deleteButton = event.target.closest("[data-delete-meeting]");
+  if (!deleteButton) return;
+  deleteMeeting(deleteButton.dataset.deleteMeeting);
+  openAllMeetings();
 });
 
 document.querySelector("[data-calendar-prev]").addEventListener("click", () => {
@@ -1940,9 +2142,8 @@ document.querySelector("[data-calendar-next]").addEventListener("click", () => {
 });
 
 document.querySelector("[data-calendar-add]").addEventListener("click", () => {
-  els.meetingForm.reset();
   els.calendarDialog.close();
-  els.meetingDialog.showModal();
+  openMeetingForm(null, "event");
 });
 
 els.calendarGrid.addEventListener("click", (event) => {
@@ -1956,40 +2157,56 @@ els.meetingForm.addEventListener("submit", (event) => {
   event.preventDefault();
   const form = Object.fromEntries(new FormData(els.meetingForm).entries());
   const meeting = {
-    id: `meeting:${crypto.randomUUID()}`,
+    ...(editingMeetingId ? meetingById(editingMeetingId) : {}),
+    id: editingMeetingId || `meeting:${crypto.randomUUID()}`,
     name: String(form.name || "").trim(),
     date: form.date || "",
     time: form.time || "",
     location: form.location || "",
     notes: form.notes || "",
-    status: "upcoming"
+    status: form.date && form.date < todayDateString() ? "attended" : "upcoming",
+    type: editingMeetingType
   };
   if (!meeting.name) return;
-  state.meetings = normalizeMeetings([...(state.meetings || []), meeting]);
+  state.meetings = editingMeetingId
+    ? normalizeMeetings((state.meetings || []).map((entry) => entry.id === editingMeetingId ? meeting : entry))
+    : normalizeMeetings([...(state.meetings || []), meeting]);
   saveState();
+  editingMeetingId = "";
+  editingMeetingType = "meeting";
   els.meetingDialog.close();
   renderMeetingDashboard();
   if (els.calendarDialog.open) renderEventCalendar();
+  if (els.allMeetingsDialog.open) openAllMeetings();
+  if (els.archiveDialog.open) openMeetingArchive();
 });
 
 els.taskForm.addEventListener("submit", (event) => {
   event.preventDefault();
   const form = Object.fromEntries(new FormData(els.taskForm).entries());
+  const existingTask = state.tasks.find((entry) => entry.id === editingTaskId);
   const task = {
-    id: `task:${crypto.randomUUID()}`,
+    ...(existingTask || {}),
+    id: editingTaskId || `task:${crypto.randomUUID()}`,
     name: String(form.name || "").trim(),
     description: form.description || "",
     dueDate: form.dueDate || "",
     meetingId: form.meetingId || "",
-    owner: "mine",
-    status: "todo",
-    complete: false
+    owner: existingTask?.owner || "mine",
+    status: form.dueDate && form.dueDate < todayDateString() && !existingTask?.complete
+      ? "overdue"
+      : existingTask?.status === "overdue" ? "todo" : existingTask?.status || "todo",
+    complete: Boolean(existingTask?.complete)
   };
   if (!task.name) return;
-  state.tasks = normalizeTasks([...(state.tasks || []), task]);
+  state.tasks = editingTaskId
+    ? normalizeTasks((state.tasks || []).map((entry) => entry.id === editingTaskId ? task : entry))
+    : normalizeTasks([...(state.tasks || []), task]);
   saveState();
+  editingTaskId = "";
   els.taskDialog.close();
   renderMeetingDashboard();
+  if (els.allTasksDialog.open) openAllTasks();
 });
 
 els.meetings.addEventListener("change", (event) => {

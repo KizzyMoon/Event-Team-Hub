@@ -113,6 +113,7 @@
       <section class="meetings is-hidden" data-meetings>
         <div class="meeting-actions">
           <button data-meeting-action="new-meeting" type="button">New Meeting</button>
+          <button data-meeting-action="new-event" type="button">New Event</button>
           <button data-meeting-action="new-task" type="button">New Task</button>
           <button data-meeting-action="event-calendar" type="button">Event Calendar</button>
           <button data-meeting-action="team-directory" type="button">Team Directory</button>
@@ -138,14 +139,14 @@
             <div class="meeting-stats">
               <article class="meeting-panel stat-panel">
                 <span>Overall Attendance (Last 30 Days)</span>
-                <strong>78%</strong>
-                <div class="mini-bar"><span style="width: 78%"></span></div>
-                <small>Good job! Let's keep it up.</small>
+                <strong data-overall-attendance>0%</strong>
+                <div class="mini-bar"><span data-overall-attendance-bar style="width: 0%"></span></div>
+                <small data-overall-attendance-note>No attendance logged yet.</small>
               </article>
               <article class="meeting-panel stat-panel">
                 <span>Meetings This Month</span>
-                <strong>4</strong>
-                <small>2 upcoming + 2 completed</small>
+                <strong data-meetings-month-count>0</strong>
+                <small data-meetings-month-summary>0 upcoming + 0 completed</small>
               </article>
               <article class="meeting-panel stat-panel">
                 <span>Tasks In Progress</span>
@@ -173,7 +174,7 @@
                 </thead>
                 <tbody data-recent-meetings></tbody>
               </table>
-              <button class="wide-button" data-meeting-filter="all" type="button">View All Meetings</button>
+              <button class="wide-button" data-meeting-action="all-meetings" type="button">View All Meetings</button>
             </article>
           </div>
 
@@ -268,8 +269,8 @@
 
     <dialog data-meeting-dialog>
       <form method="dialog" data-meeting-form>
-        <h3>New meeting</h3>
-        <label>Meeting name<input name="name" required /></label>
+        <h3 data-meeting-form-title>New meeting</h3>
+        <label>Name<input name="name" required /></label>
         <div class="form-grid-two">
           <label>Date<input name="date" type="date" required /></label>
           <label>Time<input name="time" type="time" required /></label>
@@ -285,7 +286,7 @@
 
     <dialog data-task-dialog>
       <form method="dialog" data-task-form>
-        <h3>New task</h3>
+        <h3 data-task-form-title>New task</h3>
         <label>Task name<input name="name" required /></label>
         <label>Description<textarea name="description" rows="3"></textarea></label>
         <label>Due date<input name="dueDate" type="date" /></label>
@@ -334,7 +335,7 @@
         <div class="detail-stack" data-meeting-detail-content></div>
         <div class="dialog-actions">
           <button class="danger" data-delete-meeting-detail type="button">Delete</button>
-          <button data-log-meeting-attendance type="button">Log Attendance</button>
+          <button data-edit-meeting-detail type="button">Edit</button>
           <button data-close-meeting-detail type="button">Close</button>
         </div>
       </form>
@@ -346,8 +347,22 @@
         <div class="detail-stack" data-task-detail-content></div>
         <div class="dialog-actions">
           <button class="danger" data-delete-task-detail type="button">Delete</button>
+          <button data-edit-task-detail type="button">Edit</button>
           <button data-close-task-detail type="button">Close</button>
         </div>
+      </form>
+    </dialog>
+
+    <dialog class="archive-dialog" data-all-meetings-dialog>
+      <form method="dialog">
+        <div class="section-head">
+          <div>
+            <h3>All Meetings & Events</h3>
+            <span data-all-meetings-subtitle>Saved meetings</span>
+          </div>
+          <button data-close-all-meetings type="button">Close</button>
+        </div>
+        <div class="archive-detail-list" data-all-meetings-content></div>
       </form>
     </dialog>
 
@@ -379,7 +394,7 @@
       </form>
     </dialog>
 
-    <script src="hlet-data.js?v=object-save-cleanup-20260705"></script>
-    <script src="hlet-app.js?v=object-save-cleanup-20260705"></script>
+    <script src="hlet-data.js?v=meeting-tools-20260705"></script>
+    <script src="hlet-app.js?v=meeting-tools-20260705"></script>
   </body>
 </html>
