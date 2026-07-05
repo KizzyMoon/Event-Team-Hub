@@ -210,7 +210,7 @@ function saveState() {
     return true;
   } catch (error) {
     console.error("Could not save Events Team Hub data.", error);
-    alert("This change could not be saved in your browser. Try refreshing once, then make the tag change again.");
+    alert("This change could not be saved in your browser, so it was not applied. Try refreshing once, then make the change again.");
     return false;
   }
 }
@@ -1117,18 +1117,32 @@ document.addEventListener("click", async (event) => {
     const item = state.items.find((entry) => entry.id === deleteItem.dataset.deleteItem);
     if (item && confirm(`Delete ${item.name}?`)) {
       const deletedCategory = getUsefulCategory(item);
+      const previousItems = state.items;
+      const previousCustomItems = state.customItems || [];
+      const previousOverrides = { ...(state.itemOverrides || {}) };
+      const previousDeletedItemIds = [...(state.deletedItemIds || [])];
+      const previousLists = state.lists.map((list) => ({ ...list, itemIds: [...list.itemIds] }));
+      const previousFavoritesByUser = Object.fromEntries(Object.entries(state.favoritesByUser || {}).map(([key, ids]) => [key, [...ids]]));
       state.deletedItemIds = state.deletedItemIds || [];
       if (!state.deletedItemIds.includes(item.id)) state.deletedItemIds.push(item.id);
       state.items = state.items.filter((entry) => entry.id !== item.id);
       state.customItems = (state.customItems || []).filter((entry) => entry.id !== item.id);
       if (state.itemOverrides) delete state.itemOverrides[item.id];
-      await deleteStoredImage(item.id);
       state.lists.forEach((list) => list.itemIds = list.itemIds.filter((id) => id !== item.id));
       Object.values(state.favoritesByUser || {}).forEach((ids) => {
         const favoriteIndex = ids.indexOf(item.id);
         if (favoriteIndex !== -1) ids.splice(favoriteIndex, 1);
       });
-      saveState();
+      if (!saveState()) {
+        state.items = previousItems;
+        state.customItems = previousCustomItems;
+        state.itemOverrides = previousOverrides;
+        state.deletedItemIds = previousDeletedItemIds;
+        state.lists = previousLists;
+        state.favoritesByUser = previousFavoritesByUser;
+        return;
+      }
+      await deleteStoredImage(item.id);
       renderAll({ keepMissingCategory: activeCategory === deletedCategory });
     }
     return;
