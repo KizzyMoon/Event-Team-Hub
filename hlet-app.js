@@ -240,6 +240,7 @@ function removeSeededLists(lists = []) {
 
 function mergeSeedItems(savedState) {
   const deleted = new Set(savedState.deletedItemIds || []);
+  const deletedTags = { ...EMPTY_TAG_STATE, ...(savedState.deletedTags || {}) };
   const merged = new Map();
 
   (seed.items || []).forEach((item) => {
@@ -257,7 +258,8 @@ function mergeSeedItems(savedState) {
 
   return {
     ...savedState,
-    items: [...merged.values()].map(removeDeletedTagsFromItem)
+    deletedTags,
+    items: [...merged.values()].map((item) => removeDeletedTagsFromItem(item, deletedTags))
   };
 }
 
@@ -283,12 +285,19 @@ function compactSavedOverrides(overrides = {}) {
   }));
 }
 
+function cleanSavedOverrides(overrides = {}, deletedTags = state.deletedTags) {
+  return Object.fromEntries(Object.entries(overrides).map(([id, override]) => {
+    return [id, removeDeletedTagsFromItem(override, deletedTags)];
+  }));
+}
+
 function saveState() {
+  const deletedTags = { ...EMPTY_TAG_STATE, ...(state.deletedTags || {}) };
   const savedState = {
-    customItems: (state.customItems || []).map(compactSavedItem),
-    itemOverrides: compactSavedOverrides(state.itemOverrides || {}),
+    customItems: (state.customItems || []).map((item) => compactSavedItem(removeDeletedTagsFromItem(item, deletedTags))),
+    itemOverrides: compactSavedOverrides(cleanSavedOverrides(state.itemOverrides || {}, deletedTags)),
     customTags: { ...EMPTY_TAG_STATE, ...(state.customTags || {}) },
-    deletedTags: { ...EMPTY_TAG_STATE, ...(state.deletedTags || {}) },
+    deletedTags,
     favoritesByUser: state.favoritesByUser || {},
     deletedItemIds: state.deletedItemIds || [],
     teamMembers: normalizeTeamMembers(state.teamMembers || DEFAULT_TEAM_MEMBERS),
@@ -544,12 +553,25 @@ function tagWasDeleted(kind, tag) {
   return deletedTagsFor(kind).some((entry) => entry.toLowerCase() === target);
 }
 
-function removeDeletedTagsFromItem(item) {
+function tagWasDeletedIn(deletedTags, kind, tag) {
+  const target = normalizeTag(kind, tag).toLowerCase();
+  const tags = { ...EMPTY_TAG_STATE, ...(deletedTags || {}) };
+  return (tags[kind] || []).some((entry) => entry.toLowerCase() === target);
+}
+
+function removeDeletedTagsFromItem(item, deletedTags = state.deletedTags) {
   if (!item?.tags?.length) return item;
   return {
     ...item,
-    tags: item.tags.filter((tag) => !tagWasDeleted(item.kind, tag))
+    tags: item.tags.filter((tag) => !tagWasDeletedIn(deletedTags, item.kind, tag))
   };
+}
+
+function removeDeletedTagsFromOverrides(kind, deletedTags = state.deletedTags) {
+  state.itemOverrides = Object.fromEntries(Object.entries(state.itemOverrides || {}).map(([id, override]) => {
+    return [id, override.kind === kind ? removeDeletedTagsFromItem(override, deletedTags) : override];
+  }));
+  state.customItems = (state.customItems || []).map((item) => item.kind === kind ? removeDeletedTagsFromItem(item, deletedTags) : item);
 }
 
 function addCustomTag(kind, tag) {
@@ -574,6 +596,7 @@ function removeTagFromItem(item, tag) {
 function deleteTagEverywhere(kind, tag) {
   rememberDeletedTag(kind, tag);
   state.items = state.items.map((item) => item.kind === kind ? removeDeletedTagsFromItem(item) : item);
+  removeDeletedTagsFromOverrides(kind);
   state.customTags[kind] = customTagsFor(kind).filter((entry) => entry.toLowerCase() !== String(tag).toLowerCase());
 }
 
@@ -581,6 +604,7 @@ function applySettingsTagDelete(kind, tag) {
   rememberDeletedTag(kind, tag);
   state.customTags[kind] = customTagsFor(kind).filter((entry) => entry.toLowerCase() !== String(tag).toLowerCase());
   state.items = state.items.map((item) => item.kind === kind ? removeDeletedTagsFromItem(item) : item);
+  removeDeletedTagsFromOverrides(kind);
   return saveState();
 }
 
