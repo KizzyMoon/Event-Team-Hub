@@ -94,6 +94,7 @@
             </div>
             <div class="list-tools">
               <input data-list-search type="search" placeholder="Search list..." />
+              <button data-open-reward-box type="button">Reward box</button>
               <button data-copy-list type="button">Copy all</button>
               <button data-delete-list type="button">Delete</button>
             </div>
@@ -278,7 +279,20 @@
       </form>
     </dialog>
 
-    <script src="hlet-data.js?v=compact-items-mods-prices-20260705"></script>
-    <script src="hlet-app.js?v=compact-items-mods-prices-20260705"></script>
+    <dialog data-reward-dialog>
+      <form method="dialog" data-reward-form>
+        <h3>Create reward box</h3>
+        <label>Ideal value ($)<input name="value" inputmode="numeric" placeholder="1000" required /></label>
+        <label class="check"><input name="criminal" type="checkbox" /> Allow criminal items</label>
+        <p class="muted" data-reward-summary>Uses priced items only.</p>
+        <div class="dialog-actions">
+          <button data-close-reward-dialog type="button">Cancel</button>
+          <button type="submit">Create</button>
+        </div>
+      </form>
+    </dialog>
+
+    <script src="hlet-data.js?v=reward-boxes-20260705"></script>
+    <script src="hlet-app.js?v=reward-boxes-20260705"></script>
   </body>
 </html>

@@ -901,7 +901,8 @@ dialog::backdrop {
 }
 
 [data-item-form],
-[data-tag-form] {
+[data-tag-form],
+[data-reward-form] {
   display: grid;
   gap: 12px;
 }

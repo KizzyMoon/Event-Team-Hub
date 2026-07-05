@@ -26,6 +26,7 @@ const ITEM_CATEGORIES = [
   "Weed"
 ];
 const WEAPON_CATEGORIES = ["HEAVY", "SMGS", "THROWABLES", "MELEE", "OTHER", "PISTOLS", "SHOTGUNS", "RIFLES"];
+const CRIMINAL_ITEM_TAGS = new Set(["blueprints", "drugs", "heist", "shrooms", "weed"]);
 const VEHICLE_CATEGORIES = [
   "BCSO",
   "LSPD",
@@ -111,6 +112,9 @@ const els = {
   tagAddRow: document.querySelector("[data-tag-add-row]"),
   tagAdd: document.querySelector("[data-tag-add]"),
   tagCancel: document.querySelector("[data-tag-cancel]"),
+  rewardDialog: document.querySelector("[data-reward-dialog]"),
+  rewardForm: document.querySelector("[data-reward-form]"),
+  rewardSummary: document.querySelector("[data-reward-summary]"),
   listMenu: document.querySelector("[data-list-menu]"),
   listTitle: document.querySelector("[data-list-title]"),
   listSubtitle: document.querySelector("[data-list-subtitle]"),
@@ -916,6 +920,80 @@ function renderLists() {
   els.listItems.innerHTML = items.map((item) => renderCard(item, { removeFromList: true })).join("");
 }
 
+function itemPrice(item) {
+  return Number(String(item.price || "").replace(/[^\d]/g, "")) || 0;
+}
+
+function isCriminalItem(item) {
+  return (item.tags || []).some((tag) => CRIMINAL_ITEM_TAGS.has(String(tag).trim().toLowerCase()));
+}
+
+function rewardCandidates(allowCriminal) {
+  return state.items
+    .filter((item) => item.kind === "item" && !item.blacklisted && itemPrice(item) > 0)
+    .filter((item) => allowCriminal || !isCriminalItem(item))
+    .map((item) => ({ item, price: itemPrice(item) }))
+    .sort((a, b) => sortText(a.item.name, b.item.name));
+}
+
+function pickRewardItems(targetValue, allowCriminal) {
+  const candidates = rewardCandidates(allowCriminal);
+  if (!candidates.length) return { items: [], total: 0 };
+
+  let best = [];
+  let bestTotal = 0;
+  const upperLimit = Math.max(targetValue * 1.12, targetValue + 100);
+  const attempts = Math.min(240, Math.max(60, candidates.length * 4));
+
+  for (let attempt = 0; attempt < attempts; attempt += 1) {
+    const shuffled = [...candidates].sort(() => Math.random() - 0.5);
+    const picked = [];
+    let total = 0;
+
+    shuffled.forEach((entry) => {
+      if (total + entry.price <= upperLimit && (total < targetValue || Math.random() > 0.55)) {
+        picked.push(entry.item);
+        total += entry.price;
+      }
+    });
+
+    if (!best.length || Math.abs(targetValue - total) < Math.abs(targetValue - bestTotal)) {
+      best = picked;
+      bestTotal = total;
+    }
+  }
+
+  if (!best.length) {
+    const closest = candidates.reduce((winner, entry) => Math.abs(entry.price - targetValue) < Math.abs(winner.price - targetValue) ? entry : winner, candidates[0]);
+    best = [closest.item];
+    bestTotal = closest.price;
+  }
+
+  return { items: sortItemsByName(best), total: bestTotal };
+}
+
+function createRewardBox(targetValue, allowCriminal) {
+  const picked = pickRewardItems(targetValue, allowCriminal);
+  if (!picked.items.length) {
+    alert("No priced items are available for that reward box.");
+    return;
+  }
+
+  const user = currentUser();
+  const list = {
+    id: crypto.randomUUID(),
+    name: `Reward Box $${targetValue.toLocaleString()}`,
+    createdBy: user?.name || "Events Team",
+    itemIds: picked.items.map((item) => item.id)
+  };
+
+  state.lists.unshift(list);
+  activeListId = list.id;
+  saveState();
+  setTab("lists");
+  els.rewardSummary.textContent = `${picked.items.length} items picked - total $${picked.total.toLocaleString()}`;
+}
+
 function renderFavorites() {
   if (activeTab !== "favorites") return;
 
@@ -1433,6 +1511,29 @@ document.querySelector("[data-new-list]").addEventListener("click", () => {
   activeListId = list.id;
   saveState();
   setTab("lists");
+});
+
+document.querySelector("[data-open-reward-box]").addEventListener("click", () => {
+  els.rewardForm.reset();
+  els.rewardSummary.textContent = "Uses priced items only.";
+  els.rewardDialog.showModal();
+});
+
+document.querySelector("[data-close-reward-dialog]").addEventListener("click", () => {
+  els.rewardDialog.close();
+});
+
+els.rewardForm.addEventListener("submit", (event) => {
+  event.preventDefault();
+  const form = Object.fromEntries(new FormData(els.rewardForm).entries());
+  const targetValue = Number(String(form.value || "").replace(/[^\d]/g, "")) || 0;
+  if (targetValue <= 0) {
+    els.rewardSummary.textContent = "Enter a value higher than $0.";
+    return;
+  }
+
+  createRewardBox(targetValue, Boolean(form.criminal));
+  els.rewardDialog.close();
 });
 
 els.listMenu.addEventListener("click", (event) => {
