@@ -1018,9 +1018,7 @@ function displayCategory(kind, category) {
 }
 
 function renderCard(item, options = {}) {
-  const listButton = state.lists.length
-    ? `<button data-add-to-list="${escapeHtml(item.id)}" type="button">+ List</button>`
-    : "";
+  const listButton = `<button data-add-to-list="${escapeHtml(item.id)}" type="button">+ List</button>`;
   const editTagsButton = item.kind === "object" || item.kind === "item" || item.kind === "vehicle" || item.kind === "weapon"
     ? `<button data-edit-item="${escapeHtml(item.id)}" type="button">Edit</button>`
     : "";
@@ -2336,6 +2334,14 @@ document.addEventListener("click", async (event) => {
   const addToList = event.target.closest("[data-add-to-list]");
   if (addToList) {
     ensureActiveList();
+    if (!activeListId) {
+      const name = await sitePrompt("List name", "New list");
+      if (!name) return;
+      const user = currentUser();
+      const list = { id: crypto.randomUUID(), name, createdBy: user?.name || "Events Team", itemIds: [] };
+      state.lists.unshift(list);
+      activeListId = list.id;
+    }
     const list = state.lists.find((entry) => entry.id === activeListId);
     if (list && !list.itemIds.includes(addToList.dataset.addToList)) list.itemIds.push(addToList.dataset.addToList);
     saveState();
