@@ -4,6 +4,10 @@ const SESSION_KEY = "hlet-session-v1";
 const PAGE_SIZE = 120;
 const WEAPON_CATEGORIES = ["HEAVY", "SMGS", "THROWABLES", "MELEE", "OTHER", "PISTOLS", "SHOTGUNS", "RIFLES"];
 const VEHICLE_CATEGORIES = [
+  "BCSO",
+  "LSPD",
+  "DOA",
+  "FIB",
   "EMS",
   "G6",
   "Event",
@@ -30,6 +34,8 @@ const VEHICLE_CATEGORIES = [
 ];
 
 const seed = window.HLET_SEED_DATA || { items: [] };
+const IMAGE_DB_NAME = "hlet-image-store-v1";
+const IMAGE_STORE_NAME = "images";
 const state = loadState();
 let activeTab = "objects";
 let activeCategory = "All";
@@ -39,6 +45,7 @@ let editingTagItemId = "";
 let editingTags = [];
 let editingItemId = "";
 let pendingImageData = "";
+let storedImages = {};
 
 const els = {
   loginView: document.querySelector("[data-login-view]"),
@@ -168,6 +175,88 @@ function escapeHtml(value) {
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#039;");
+}
+
+function openImageStore() {
+  return new Promise((resolve, reject) => {
+    if (!("indexedDB" in window)) {
+      reject(new Error("IndexedDB is not available."));
+      return;
+    }
+    const request = indexedDB.open(IMAGE_DB_NAME, 1);
+    request.addEventListener("upgradeneeded", () => {
+      request.result.createObjectStore(IMAGE_STORE_NAME);
+    });
+    request.addEventListener("success", () => resolve(request.result));
+    request.addEventListener("error", () => reject(request.error));
+  });
+}
+
+function runImageStore(mode, callback) {
+  return openImageStore().then((db) => new Promise((resolve, reject) => {
+    const transaction = db.transaction(IMAGE_STORE_NAME, mode);
+    const store = transaction.objectStore(IMAGE_STORE_NAME);
+    transaction.addEventListener("complete", () => {
+      db.close();
+      resolve();
+    });
+    transaction.addEventListener("abort", () => {
+      db.close();
+      reject(transaction.error);
+    });
+    callback(store, resolve, reject);
+  }));
+}
+
+async function loadStoredImages() {
+  try {
+    const images = {};
+    await runImageStore("readonly", (store, resolve) => {
+      const request = store.openCursor();
+      request.addEventListener("success", () => {
+        const cursor = request.result;
+        if (!cursor) {
+          storedImages = images;
+          resolve();
+          return;
+        }
+        images[cursor.key] = cursor.value;
+        cursor.continue();
+      });
+      request.addEventListener("error", resolve);
+    });
+    renderAll();
+  } catch (error) {
+    console.warn("Uploaded image storage is unavailable.", error);
+  }
+}
+
+async function saveStoredImage(id, imageData) {
+  if (!id || !imageData || !String(imageData).startsWith("data:")) return false;
+  try {
+    await runImageStore("readwrite", (store) => store.put(imageData, id));
+    storedImages[id] = imageData;
+    return true;
+  } catch (error) {
+    console.error("Could not save uploaded image.", error);
+    alert("The image could not be saved in this browser. Try a smaller image.");
+    return false;
+  }
+}
+
+async function deleteStoredImage(id) {
+  if (!id) return;
+  delete storedImages[id];
+  try {
+    await runImageStore("readwrite", (store) => store.delete(id));
+  } catch (error) {
+    console.warn("Could not delete stored image.", error);
+  }
+}
+
+function imageSourceFor(item) {
+  if (String(item.image || "").startsWith("idb:")) return storedImages[item.id] || "";
+  return item.image || "";
 }
 
 function itemType(tab = activeTab) {
@@ -460,15 +549,16 @@ function openAddItemDialog() {
 function openItemEditor(item) {
   editingItemId = item.id;
   pendingImageData = "";
+  const currentImage = imageSourceFor(item);
   els.itemTitle.textContent = `Edit ${item.name}`;
   els.itemForm.reset();
   els.itemForm.elements.name.value = item.name || "";
   els.itemForm.elements.code.value = item.code || "";
   els.itemForm.elements.kind.value = item.kind || "object";
   els.itemForm.elements.kind.disabled = false;
-  els.itemForm.elements.image.value = item.image && !String(item.image).startsWith("data:") ? item.image : "";
+  els.itemForm.elements.image.value = currentImage && !String(currentImage).startsWith("data:") ? currentImage : "";
   els.itemForm.elements.notes.value = item.notes || "";
-  resetImageUploadLabel(item.image ? "Current image saved. Drop, paste, or choose to replace it." : undefined);
+  resetImageUploadLabel(currentImage ? "Current image saved. Drop, paste, or choose to replace it." : undefined);
   renderCustomCategorySelect(getUsefulCategory(item));
   els.itemDialog.showModal();
 }
@@ -557,6 +647,7 @@ function renderCard(item, options = {}) {
       </div>
       ${options.removeFromList ? `<div class="card-actions"><button class="card-remove" data-remove-from-list="${escapeHtml(item.id)}" type="button">Remove</button></div>` : ""}
       <div class="card-bottom-actions">
+        <button class="flag-button ${item.blacklisted ? "active" : ""}" data-toggle-blacklist="${escapeHtml(item.id)}" type="button" aria-label="${item.blacklisted ? "Remove blacklist" : "Mark blacklisted"}">⚑</button>
         ${editTagsButton}
         ${options.removeFromList ? "" : listButton}
         <button class="delete-corner" data-delete-item="${escapeHtml(item.id)}" type="button" aria-label="Delete ${escapeHtml(item.name)}">x</button>
@@ -579,8 +670,9 @@ function renderThumb(item) {
     return "";
   }
 
-  if (item.image) {
-    return `<img class="thumb" src="${escapeHtml(item.image)}" alt="${escapeHtml(item.name)}" loading="lazy" />`;
+  const image = imageSourceFor(item);
+  if (image) {
+    return `<img class="thumb" src="${escapeHtml(image)}" alt="${escapeHtml(item.name)}" loading="lazy" />`;
   }
 
   return `<div class="thumb no-thumb">No image</div>`;
@@ -917,6 +1009,17 @@ document.addEventListener("click", async (event) => {
     return;
   }
 
+  const blacklist = event.target.closest("[data-toggle-blacklist]");
+  if (blacklist) {
+    const item = state.items.find((entry) => entry.id === blacklist.dataset.toggleBlacklist);
+    if (!item) return;
+    item.blacklisted = !item.blacklisted;
+    saveItemOverride(item);
+    saveState();
+    renderAll();
+    return;
+  }
+
   const deleteItem = event.target.closest("[data-delete-item]");
   if (deleteItem) {
     const item = state.items.find((entry) => entry.id === deleteItem.dataset.deleteItem);
@@ -927,6 +1030,7 @@ document.addEventListener("click", async (event) => {
       state.items = state.items.filter((entry) => entry.id !== item.id);
       state.customItems = (state.customItems || []).filter((entry) => entry.id !== item.id);
       if (state.itemOverrides) delete state.itemOverrides[item.id];
+      await deleteStoredImage(item.id);
       state.lists.forEach((list) => list.itemIds = list.itemIds.filter((id) => id !== item.id));
       Object.values(state.favoritesByUser || {}).forEach((ids) => {
         const favoriteIndex = ids.indexOf(item.id);
@@ -1038,18 +1142,28 @@ els.itemForm.addEventListener("submit", async (event) => {
     existingItem.kind = form.kind;
     existingItem.name = form.name;
     existingItem.code = form.code;
-    existingItem.image = pendingImageData || form.image || existingItem.image || "";
+    if (pendingImageData) {
+      existingItem.image = await saveStoredImage(existingItem.id, pendingImageData) ? `idb:${existingItem.id}` : "";
+    } else if (form.image) {
+      existingItem.image = form.image;
+      await deleteStoredImage(existingItem.id);
+    } else {
+      existingItem.image = existingItem.image || "";
+    }
     existingItem.tags = form.tags ? [form.tags] : [];
     existingItem.notes = form.notes || "";
     saveItemOverride(existingItem);
   } else {
+    const id = `custom:${crypto.randomUUID()}`;
+    let image = form.image || "";
+    if (pendingImageData) image = await saveStoredImage(id, pendingImageData) ? `idb:${id}` : "";
     const item = {
-      id: `custom:${crypto.randomUUID()}`,
+      id,
       kind: form.kind,
       name: form.name,
       code: form.code,
       dlc: "Custom",
-      image: pendingImageData || form.image || "",
+      image,
       tags: form.tags ? [form.tags] : [],
       blacklisted: false,
       notes: form.notes || ""
@@ -1104,4 +1218,5 @@ document.querySelector("[data-delete-list]").addEventListener("click", () => {
   renderAll();
 });
 
+loadStoredImages();
 if (currentUser()) showApp();
