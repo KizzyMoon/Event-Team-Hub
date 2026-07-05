@@ -1042,6 +1042,64 @@ function setTab(tab) {
   renderAll();
 }
 
+function setActiveButton(button, selector) {
+  button.closest(".meeting-panel")?.querySelectorAll(selector).forEach((entry) => {
+    entry.classList.toggle("active", entry === button);
+  });
+}
+
+function filterMeetingRows(filter) {
+  els.meetings.querySelectorAll("[data-meeting-status]").forEach((row) => {
+    row.classList.toggle("is-hidden", filter !== "all" && row.dataset.meetingStatus !== filter);
+  });
+}
+
+function filterTaskRows(filter) {
+  els.meetings.querySelectorAll("[data-task-status]").forEach((row) => {
+    const show = filter === "all" || (filter === "mine" && row.dataset.taskOwner === "mine") || (filter === "overdue" && row.dataset.taskStatus === "overdue");
+    row.classList.toggle("is-hidden", !show);
+  });
+}
+
+function handleMeetingAction(action) {
+  const user = currentUser()?.name || "you";
+  const messages = {
+    "view-upcoming": "Halloween Event Planning\nFriday, 30 May 2025 at 7:00 PM (BST)\nLocation: Event Room 1\nNotes: Discuss themes, activities, and staff roles.",
+    "team-directory": "Team Directory\nLicora, Kai, Maya, Jax, Aria, Ryn, Nova",
+    "event-calendar": "Event Calendar view is ready for the next build. For now, upcoming meetings and recent meetings are shown on this page.",
+    templates: "Templates & Resources\nMeeting notes, event plan checklist, attendance sheet, and task tracker.",
+    "attendance-dashboard": "Attendance Dashboard\nLicora 96%, Kai 88%, Maya 83%, Jax 75%, Aria 63%, Ryn 50%, Nova 38%.",
+    "full-archive": "Meeting Archive\n2025: 12 meetings\n2024: 18 meetings\n2023: 9 meetings"
+  };
+
+  if (action === "new-meeting") {
+    const name = prompt("Meeting name");
+    if (!name) return;
+    const date = prompt("Date and time", "Friday, 30 May 2025 - 7:00 PM (BST)");
+    if (!date) return;
+    alert(`Meeting draft created:\n${name}\n${date}`);
+    return;
+  }
+
+  if (action === "new-task") {
+    const task = prompt("Task name");
+    if (!task) return;
+    const list = els.meetings.querySelector(".task-list");
+    list?.insertAdjacentHTML("afterbegin", `<li data-task-owner="mine" data-task-status="todo"><input type="checkbox" /> ${escapeHtml(task)} <span class="pill todo">To Do</span></li>`);
+    alert(`Task added for ${user}.`);
+    return;
+  }
+
+  if (action === "log-attendance") {
+    const status = prompt("Attendance status", "Attended");
+    if (!status) return;
+    alert(`Attendance logged for ${user}: ${status}`);
+    return;
+  }
+
+  alert(messages[action] || "This meeting tool is ready.");
+}
+
 els.loginForm.addEventListener("submit", (event) => {
   event.preventDefault();
   const formData = new FormData(els.loginForm);
@@ -1107,6 +1165,46 @@ els.settingsPanels.addEventListener("submit", (event) => {
   if (!form) return;
   event.preventDefault();
   submitSettingsTag(form);
+});
+
+els.meetings.addEventListener("click", (event) => {
+  const meetingFilter = event.target.closest("[data-meeting-filter]");
+  if (meetingFilter) {
+    setActiveButton(meetingFilter, "[data-meeting-filter]");
+    filterMeetingRows(meetingFilter.dataset.meetingFilter);
+    return;
+  }
+
+  const taskFilter = event.target.closest("[data-task-filter]");
+  if (taskFilter) {
+    setActiveButton(taskFilter, "[data-task-filter]");
+    filterTaskRows(taskFilter.dataset.taskFilter);
+    return;
+  }
+
+  const action = event.target.closest("[data-meeting-action]");
+  if (action) {
+    handleMeetingAction(action.dataset.meetingAction);
+    return;
+  }
+
+  const note = event.target.closest("[data-meeting-note]");
+  if (note) {
+    alert(`${note.dataset.meetingNote}\nNotes are available from this row.`);
+    return;
+  }
+
+  const archive = event.target.closest("[data-meeting-archive]");
+  if (archive) {
+    alert(`${archive.dataset.meetingArchive} archive selected.`);
+  }
+});
+
+els.meetings.addEventListener("change", (event) => {
+  const checkbox = event.target.closest(".task-list input[type='checkbox']");
+  if (!checkbox) return;
+  const task = checkbox.closest("li");
+  task?.classList.toggle("is-complete", checkbox.checked);
 });
 
 [els.search, els.listSearch, els.favoriteSearch].forEach((input) => {

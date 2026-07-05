@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Events Team Hub</title>
-    <link rel="stylesheet" href="hlet-styles.css?v=meetings-page-20260705" />
+    <link rel="stylesheet" href="hlet-styles.css?v=meeting-buttons-20260705" />
   </head>
   <body>
     <section class="login-view" data-login-view>
@@ -111,10 +111,10 @@
 
       <section class="meetings is-hidden" data-meetings>
         <div class="meeting-actions">
-          <button type="button">New Meeting</button>
-          <button type="button">New Task</button>
-          <button type="button">Log Attendance</button>
-          <button type="button">Team Directory</button>
+          <button data-meeting-action="new-meeting" type="button">New Meeting</button>
+          <button data-meeting-action="new-task" type="button">New Task</button>
+          <button data-meeting-action="log-attendance" type="button">Log Attendance</button>
+          <button data-meeting-action="team-directory" type="button">Team Directory</button>
         </div>
 
         <div class="meeting-layout">
@@ -151,7 +151,7 @@
                 <div class="meeting-status">
                   <span>Your Status <strong>Attending</strong></span>
                   <span>RSVP by <strong>28 May 2025</strong></span>
-                  <button type="button">View Meeting</button>
+                  <button data-meeting-action="view-upcoming" type="button">View Meeting</button>
                 </div>
               </div>
             </article>
@@ -159,33 +159,32 @@
             <article class="meeting-panel recent-meetings">
               <h3>Recent Meetings</h3>
               <div class="meeting-tabs">
-                <button class="active" type="button">All</button>
-                <button type="button">Attended</button>
-                <button type="button">Missed</button>
-                <button type="button">Unavailable</button>
+                <button class="active" data-meeting-filter="all" type="button">All</button>
+                <button data-meeting-filter="attended" type="button">Attended</button>
+                <button data-meeting-filter="missed" type="button">Missed</button>
+                <button data-meeting-filter="unavailable" type="button">Unavailable</button>
               </div>
               <table>
                 <thead>
                   <tr><th>Meeting</th><th>Date</th><th>Your Status</th><th>Attendance</th><th>Tasks</th><th>Notes</th></tr>
                 </thead>
                 <tbody>
-                  <tr><td>Summer Event Kickoff</td><td>18 May 2025</td><td><span class="pill good">Attended</span></td><td>9 / 12 (75%)</td><td>5 / 5</td><td>View</td></tr>
-                  <tr><td>Event Team Sync</td><td>11 May 2025</td><td><span class="pill good">Attended</span></td><td>10 / 12 (83%)</td><td>3 / 3</td><td>View</td></tr>
-                  <tr><td>Charity Event Planning</td><td>4 May 2025</td><td><span class="pill bad">Missed</span></td><td>7 / 12 (58%)</td><td>2 / 4</td><td>View</td></tr>
-                  <tr><td>Easter Event Debrief</td><td>27 Apr 2025</td><td><span class="pill good">Attended</span></td><td>11 / 12 (92%)</td><td>4 / 4</td><td>View</td></tr>
-                  <tr><td>Event Brainstorm</td><td>20 Apr 2025</td><td><span class="pill warn">Unavailable</span></td><td>8 / 12 (67%)</td><td>2 / 2</td><td>View</td></tr>
+                  <tr data-meeting-status="attended"><td>Summer Event Kickoff</td><td>18 May 2025</td><td><span class="pill good">Attended</span></td><td>9 / 12 (75%)</td><td>5 / 5</td><td><button data-meeting-note="Summer Event Kickoff" type="button">View</button></td></tr>
+                  <tr data-meeting-status="attended"><td>Event Team Sync</td><td>11 May 2025</td><td><span class="pill good">Attended</span></td><td>10 / 12 (83%)</td><td>3 / 3</td><td><button data-meeting-note="Event Team Sync" type="button">View</button></td></tr>
+                  <tr data-meeting-status="missed"><td>Charity Event Planning</td><td>4 May 2025</td><td><span class="pill bad">Missed</span></td><td>7 / 12 (58%)</td><td>2 / 4</td><td><button data-meeting-note="Charity Event Planning" type="button">View</button></td></tr>
+                  <tr data-meeting-status="attended"><td>Easter Event Debrief</td><td>27 Apr 2025</td><td><span class="pill good">Attended</span></td><td>11 / 12 (92%)</td><td>4 / 4</td><td><button data-meeting-note="Easter Event Debrief" type="button">View</button></td></tr>
+                  <tr data-meeting-status="unavailable"><td>Event Brainstorm</td><td>20 Apr 2025</td><td><span class="pill warn">Unavailable</span></td><td>8 / 12 (67%)</td><td>2 / 2</td><td><button data-meeting-note="Event Brainstorm" type="button">View</button></td></tr>
                 </tbody>
               </table>
-              <button class="wide-button" type="button">View All Meetings</button>
+              <button class="wide-button" data-meeting-filter="all" type="button">View All Meetings</button>
             </article>
 
             <div class="meeting-footer-grid">
-              <article class="meeting-panel team-note">Teamwork makes the event work.</article>
               <article class="meeting-panel quick-links">
                 <h3>Quick Links</h3>
-                <button type="button">Team Directory</button>
-                <button type="button">Event Calendar</button>
-                <button type="button">Templates & Resources</button>
+                <button data-meeting-action="team-directory" type="button">Team Directory</button>
+                <button data-meeting-action="event-calendar" type="button">Event Calendar</button>
+                <button data-meeting-action="templates" type="button">Templates & Resources</button>
               </article>
             </div>
           </div>
@@ -202,33 +201,33 @@
                 <span>Ryn <b><i style="width: 50%"></i></b><em>50%</em></span>
                 <span>Nova <b><i style="width: 38%"></i></b><em>38%</em></span>
               </div>
-              <button class="wide-button" type="button">View Full Attendance Dashboard</button>
+              <button class="wide-button" data-meeting-action="attendance-dashboard" type="button">View Full Attendance Dashboard</button>
             </article>
 
             <article class="meeting-panel">
               <h3>Tasks (Quick View)</h3>
               <div class="meeting-tabs">
-                <button class="active" type="button">All</button>
-                <button type="button">My Tasks</button>
-                <button type="button">Overdue</button>
+                <button class="active" data-task-filter="all" type="button">All</button>
+                <button data-task-filter="mine" type="button">My Tasks</button>
+                <button data-task-filter="overdue" type="button">Overdue</button>
               </div>
               <ul class="task-list">
-                <li><input type="checkbox" /> Book Halloween venue <span class="pill bad">Overdue</span></li>
-                <li><input type="checkbox" /> Create event budget <span class="pill warn">In Progress</span></li>
-                <li><input type="checkbox" /> Confirm vendors <span class="pill todo">To Do</span></li>
-                <li><input type="checkbox" /> Design social media graphics <span class="pill todo">To Do</span></li>
+                <li data-task-owner="mine" data-task-status="overdue"><input type="checkbox" /> Book Halloween venue <span class="pill bad">Overdue</span></li>
+                <li data-task-owner="team" data-task-status="progress"><input type="checkbox" /> Create event budget <span class="pill warn">In Progress</span></li>
+                <li data-task-owner="mine" data-task-status="todo"><input type="checkbox" /> Confirm vendors <span class="pill todo">To Do</span></li>
+                <li data-task-owner="team" data-task-status="todo"><input type="checkbox" /> Design social media graphics <span class="pill todo">To Do</span></li>
               </ul>
-              <button class="wide-button" type="button">View All Tasks</button>
+              <button class="wide-button" data-task-filter="all" type="button">View All Tasks</button>
             </article>
 
             <article class="meeting-panel">
               <h3>Meeting Archive</h3>
               <div class="archive-list">
-                <span>2025 <em>12 meetings</em></span>
-                <span>2024 <em>18 meetings</em></span>
-                <span>2023 <em>9 meetings</em></span>
+                <button data-meeting-archive="2025" type="button"><span>2025</span><em>12 meetings</em></button>
+                <button data-meeting-archive="2024" type="button"><span>2024</span><em>18 meetings</em></button>
+                <button data-meeting-archive="2023" type="button"><span>2023</span><em>9 meetings</em></button>
               </div>
-              <button class="wide-button" type="button">View Full Archive</button>
+              <button class="wide-button" data-meeting-action="full-archive" type="button">View Full Archive</button>
             </article>
           </aside>
         </div>
@@ -278,7 +277,7 @@
       </form>
     </dialog>
 
-    <script src="hlet-data.js?v=meetings-page-20260705"></script>
-    <script src="hlet-app.js?v=meetings-page-20260705"></script>
+    <script src="hlet-data.js?v=meeting-buttons-20260705"></script>
+    <script src="hlet-app.js?v=meeting-buttons-20260705"></script>
   </body>
 </html>
