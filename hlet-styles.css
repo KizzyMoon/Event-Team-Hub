@@ -319,10 +319,10 @@ nav span {
 
 .item-card,
 .weapon-card {
-  grid-template-rows: 24px 28px 24px;
-  height: 108px;
-  gap: 5px;
-  padding: 12px 12px 34px;
+  grid-template-rows: 30px 28px 28px;
+  height: 132px;
+  gap: 7px;
+  padding: 12px 12px 40px;
 }
 
 .weapon-card .thumb,
@@ -437,6 +437,7 @@ nav span {
   align-content: start;
   overflow: hidden;
   align-items: center;
+  max-height: 30px;
 }
 
 .card-actions {
@@ -904,6 +905,24 @@ nav span {
   font-size: 0.82rem;
 }
 
+.task-link {
+  min-height: 0;
+  overflow: hidden;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  padding: 0;
+  font: inherit;
+  font-weight: 800;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.task-link:hover {
+  color: #d8b5ff;
+}
+
 .task-list small {
   color: var(--muted);
   font-size: 0.68rem;
@@ -947,6 +966,20 @@ dialog::backdrop {
 [data-task-form] {
   display: grid;
   gap: 12px;
+}
+
+.detail-stack {
+  display: grid;
+  gap: 9px;
+}
+
+.detail-stack p {
+  margin: 0;
+  color: var(--muted);
+}
+
+.detail-stack strong {
+  color: var(--text);
 }
 
 .form-grid-two {

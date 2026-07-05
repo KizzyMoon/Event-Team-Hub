@@ -114,7 +114,6 @@
         <div class="meeting-actions">
           <button data-meeting-action="new-meeting" type="button">New Meeting</button>
           <button data-meeting-action="new-task" type="button">New Task</button>
-          <button data-meeting-action="log-attendance" type="button">Log Attendance</button>
           <button data-meeting-action="event-calendar" type="button">Event Calendar</button>
           <button data-meeting-action="team-directory" type="button">Team Directory</button>
         </div>
@@ -181,15 +180,7 @@
           <aside class="meeting-side">
             <article class="meeting-panel">
               <h3>Attendance Overview (Last 30 Days)</h3>
-              <div class="attendance-list">
-                <span>Licora <b><i style="width: 96%"></i></b><em>96%</em></span>
-                <span>Kai <b><i style="width: 88%"></i></b><em>88%</em></span>
-                <span>Maya <b><i style="width: 83%"></i></b><em>83%</em></span>
-                <span>Jax <b><i style="width: 75%"></i></b><em>75%</em></span>
-                <span>Aria <b><i style="width: 63%"></i></b><em>63%</em></span>
-                <span>Ryn <b><i style="width: 50%"></i></b><em>50%</em></span>
-                <span>Nova <b><i style="width: 38%"></i></b><em>38%</em></span>
-              </div>
+              <div class="attendance-list" data-attendance-list></div>
               <button class="wide-button" data-meeting-action="attendance-dashboard" type="button">View Full Attendance Dashboard</button>
             </article>
 
@@ -201,7 +192,7 @@
                 <button data-task-filter="overdue" type="button">Overdue</button>
               </div>
               <ul class="task-list" data-task-list></ul>
-              <button class="wide-button" data-task-filter="all" type="button">View All Tasks</button>
+              <button class="wide-button" data-meeting-action="all-tasks" type="button">View All Tasks</button>
             </article>
 
             <article class="meeting-panel">
@@ -337,7 +328,43 @@
       </form>
     </dialog>
 
-    <script src="hlet-data.js?v=weapon-mods-visible-20260705"></script>
-    <script src="hlet-app.js?v=weapon-mods-visible-20260705"></script>
+    <dialog data-meeting-detail-dialog>
+      <form method="dialog">
+        <h3 data-meeting-detail-title>Meeting</h3>
+        <div class="detail-stack" data-meeting-detail-content></div>
+        <div class="dialog-actions">
+          <button class="danger" data-delete-meeting-detail type="button">Delete</button>
+          <button data-log-meeting-attendance type="button">Log Attendance</button>
+          <button data-close-meeting-detail type="button">Close</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog data-task-detail-dialog>
+      <form method="dialog">
+        <h3 data-task-detail-title>Task</h3>
+        <div class="detail-stack" data-task-detail-content></div>
+        <div class="dialog-actions">
+          <button class="danger" data-delete-task-detail type="button">Delete</button>
+          <button data-close-task-detail type="button">Close</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog class="archive-dialog" data-all-tasks-dialog>
+      <form method="dialog">
+        <div class="section-head">
+          <div>
+            <h3>All Tasks</h3>
+            <span data-all-tasks-subtitle>Saved tasks</span>
+          </div>
+          <button data-close-all-tasks type="button">Close</button>
+        </div>
+        <div class="archive-detail-list" data-all-tasks-content></div>
+      </form>
+    </dialog>
+
+    <script src="hlet-data.js?v=items-meetings-layout-20260705"></script>
+    <script src="hlet-app.js?v=items-meetings-layout-20260705"></script>
   </body>
 </html>
