@@ -40,7 +40,7 @@ const ITEM_CATEGORIES = [
   "Weed"
 ];
 const PAWNABLE_CATEGORY = "Pawnable";
-const REMOVED_ITEM_CATEGORIES = new Set(["pawn values", "valuables", "weapon mods"]);
+const REMOVED_ITEM_CATEGORIES = new Set(["pawn values", "valuables", "weapon mod", "weapon mods", "mods"]);
 const REWARD_DEFAULT_PRICES = [
   [/weed|joint/i, 270],
   [/shrooms?|mushroom/i, 250],
@@ -710,6 +710,17 @@ function normalizeWeaponModItem(item) {
   };
 }
 
+function normalizeStateItems() {
+  let changed = false;
+  state.items = (state.items || []).map((item) => {
+    const normalized = normalizeWeaponModItem(item);
+    if (normalized.kind !== item.kind || normalized.tags !== item.tags || normalized.price !== item.price) changed = true;
+    return removeDeletedTagsFromItem(normalized);
+  });
+  state.customItems = (state.customItems || []).map((item) => normalizeWeaponModItem(item));
+  return changed;
+}
+
 function editableTagsFor(item) {
   return cleanItemTags(item)
     .map((tag) => normalizeTag(item.kind, tag))
@@ -1053,7 +1064,7 @@ async function deleteItemById(itemId) {
 function filteredItems() {
   const type = itemType();
   const search = els.search.value.trim().toLowerCase();
-  const source = activeTab === "favorites" ? favoriteItems() : state.items;
+  const source = (activeTab === "favorites" ? favoriteItems() : state.items).map((item) => normalizeWeaponModItem(item));
   return sortItemsByName(source.filter((item) => {
     if (activeTab !== "favorites" && item.kind !== type) return false;
     if (activeTab === "favorites" && activeCategory !== "All" && `${item.kind}s` !== activeCategory.toLowerCase()) return false;
@@ -1614,7 +1625,8 @@ function renderSettings() {
 }
 
 function renderAll(options = {}) {
-  state.items = state.items.map((item) => removeDeletedTagsFromItem(normalizeWeaponModItem(item)));
+  const movedWeaponMods = normalizeStateItems();
+  if (movedWeaponMods) saveState();
   renderCounts();
   renderCategories(options);
   renderBrowser();
