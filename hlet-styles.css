@@ -357,6 +357,20 @@ nav span {
   color: #ffd34d;
 }
 
+.quantity-badge {
+  position: absolute;
+  top: 12px;
+  right: 38px;
+  z-index: 2;
+  border-radius: 999px;
+  background: rgba(196, 123, 255, 0.16);
+  border: 1px solid rgba(196, 123, 255, 0.6);
+  color: #e6c8ff;
+  padding: 2px 7px;
+  font-size: 0.72rem;
+  font-weight: 900;
+}
+
 .card-bottom-actions {
   position: absolute;
   left: 10px;

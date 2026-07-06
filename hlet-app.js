@@ -41,6 +41,15 @@ const ITEM_CATEGORIES = [
 ];
 const PAWNABLE_CATEGORY = "Pawnable";
 const REMOVED_ITEM_CATEGORIES = new Set(["pawn values", "valuables"]);
+const REWARD_DEFAULT_PRICES = [
+  [/weed|joint/i, 270],
+  [/shrooms?|mushroom/i, 250],
+  [/meth/i, 300],
+  [/coke|cocaine/i, 350]
+];
+const REWARD_BLOCKED_CODES = new Set(["phone", "phone_broken", "handheld_radio", "handheld_radio_broken", "radio"]);
+const REWARD_BLOCKED_TEXT = /\b(broken|depleted|cell phone|handheld radio|radio)\b/i;
+const REWARD_MAX_PROPERTY_ITEMS = 1;
 const WEAPON_CATEGORIES = ["HEAVY", "SMGS", "THROWABLES", "MELEE", "OTHER", "PISTOLS", "SHOTGUNS", "RIFLES", "MODS"];
 const CRIMINAL_ITEM_TAGS = new Set(["blueprints", "drugs", "heist", "shrooms", "weed"]);
 const VEHICLE_CATEGORIES = [
@@ -1079,12 +1088,14 @@ function renderCard(item, options = {}) {
   const thumb = renderThumb(item);
   const formattedPrice = formatMoney(item.price);
   const price = item.kind === "item" && formattedPrice ? `<span class="card-price">$${escapeHtml(formattedPrice)}</span>` : "";
+  const quantity = options.quantity > 1 ? `<span class="quantity-badge">x${options.quantity}</span>` : "";
   const removeAttr = Number.isInteger(options.listIndex)
     ? `data-remove-from-list-index="${options.listIndex}"`
     : `data-remove-from-list="${escapeHtml(item.id)}"`;
   return `
     <article class="card ${item.kind === "weapon" ? "weapon-card" : ""} ${item.kind === "item" ? "item-card" : ""} ${isListCard ? "list-card" : ""} ${item.blacklisted ? "is-blacklisted" : ""}" data-item-id="${escapeHtml(item.id)}">
       <button class="favorite-button ${isFavorite(item.id) ? "active" : ""}" data-toggle-favorite="${escapeHtml(item.id)}" type="button" aria-label="${isFavorite(item.id) ? "Remove favorite" : "Add favorite"}">&#9733;</button>
+      ${quantity}
       ${thumb}
       <h3>${escapeHtml(item.name)}</h3>
       <div class="card-code">${escapeHtml(item.code)}</div>
@@ -1230,19 +1241,44 @@ function renderLists() {
   }
 
   const search = els.listSearch.value.trim().toLowerCase();
-  const items = list.itemIds
-    .map((id, index) => ({ index, item: state.items.find((entry) => entry.id === id) }))
-    .filter((entry) => entry.item)
+  const groups = new Map();
+  list.itemIds.forEach((id, index) => {
+    const item = state.items.find((entry) => entry.id === id);
+    if (!item) return;
+    const key = String(item.code || item.id).toLowerCase();
+    const group = groups.get(key) || { item, indexes: [] };
+    group.indexes.push(index);
+    groups.set(key, group);
+  });
+  const items = [...groups.values()]
     .filter(({ item }) => !search || `${item.name} ${item.code} ${(item.tags || []).join(" ")}`.toLowerCase().includes(search))
     .sort((a, b) => sortText(a.item.name, b.item.name));
+  const totalValue = list.itemIds.reduce((total, id) => {
+    const item = state.items.find((entry) => entry.id === id);
+    return total + (item ? rewardItemPrice(item) : 0);
+  }, 0);
 
   els.listTitle.textContent = list.name;
-  els.listSubtitle.textContent = `${list.itemIds.length} items - created by ${list.createdBy || "Events Team"}`;
-  els.listItems.innerHTML = items.map(({ item, index }) => renderCard(item, { removeFromList: true, listIndex: index })).join("");
+  els.listSubtitle.textContent = `${list.itemIds.length} items${totalValue ? ` - $${totalValue.toLocaleString()} total` : ""} - created by ${list.createdBy || "Events Team"}`;
+  els.listItems.innerHTML = items.map(({ item, indexes }) => renderCard(item, { removeFromList: true, quantity: indexes.length })).join("");
 }
 
 function itemPrice(item) {
   return Number(String(item.price || "").replace(/[^\d]/g, "")) || 0;
+}
+
+function rewardItemPrice(item) {
+  const explicit = itemPrice(item);
+  if (explicit) return explicit;
+  const text = `${item.name || ""} ${item.code || ""} ${(item.tags || []).join(" ")}`;
+  const fallback = REWARD_DEFAULT_PRICES.find(([pattern]) => pattern.test(text));
+  return fallback ? fallback[1] : 0;
+}
+
+function isRewardBlockedItem(item) {
+  const code = String(item.code || "").trim().toLowerCase();
+  const text = `${item.name || ""} ${item.code || ""}`;
+  return REWARD_BLOCKED_CODES.has(code) || REWARD_BLOCKED_TEXT.test(text);
 }
 
 function isCriminalItem(item) {
@@ -1251,9 +1287,10 @@ function isCriminalItem(item) {
 
 function rewardCandidates(allowCriminal) {
   return state.items
-    .filter((item) => item.kind === "item" && !item.blacklisted && itemPrice(item) > 0)
+    .filter((item) => item.kind === "item" && !item.blacklisted && rewardItemPrice(item) > 0)
+    .filter((item) => !isRewardBlockedItem(item))
     .filter((item) => allowCriminal || !isCriminalItem(item))
-    .map((item) => ({ item, price: itemPrice(item) }))
+    .map((item) => ({ item, price: rewardItemPrice(item), category: getUsefulCategory(item) }))
     .sort((a, b) => sortText(a.item.name, b.item.name));
 }
 
@@ -1263,24 +1300,35 @@ function pickRewardItems(targetValue, allowCriminal) {
 
   let best = [];
   let bestTotal = 0;
-  const upperLimit = Math.max(targetValue * 1.12, targetValue + 100);
-  const attempts = Math.min(240, Math.max(60, candidates.length * 4));
+  let bestScore = Infinity;
+  const lowerLimit = Math.max(0, targetValue - Math.max(250, targetValue * 0.04));
+  const upperLimit = targetValue + Math.max(250, targetValue * 0.04);
+  const attempts = Math.min(900, Math.max(240, candidates.length * 8));
 
   for (let attempt = 0; attempt < attempts; attempt += 1) {
-    const shuffled = [...candidates].sort(() => Math.random() - 0.5);
+    const shuffled = [...candidates]
+      .filter((entry) => entry.price <= upperLimit)
+      .sort(() => Math.random() - 0.5);
     const picked = [];
     let total = 0;
+    let propertyCount = 0;
 
     shuffled.forEach((entry) => {
-      if (total + entry.price <= upperLimit && (total < targetValue || Math.random() > 0.55)) {
-        picked.push(entry.item);
-        total += entry.price;
-      }
+      if (entry.category === "Property" && propertyCount >= REWARD_MAX_PROPERTY_ITEMS) return;
+      if (total + entry.price > upperLimit) return;
+      if (total >= lowerLimit && Math.random() < 0.72) return;
+      picked.push(entry);
+      total += entry.price;
+      if (entry.category === "Property") propertyCount += 1;
     });
 
-    if (!best.length || Math.abs(targetValue - total) < Math.abs(targetValue - bestTotal)) {
-      best = picked;
+    const propertyPenalty = propertyCount > REWARD_MAX_PROPERTY_ITEMS ? 25000 : propertyCount * 180;
+    const rangePenalty = total < lowerLimit ? (lowerLimit - total) * 3 : total > upperLimit ? (total - upperLimit) * 6 : 0;
+    const score = Math.abs(targetValue - total) + rangePenalty + propertyPenalty + picked.length * 8;
+    if (picked.length && score < bestScore) {
+      best = picked.map((entry) => entry.item);
       bestTotal = total;
+      bestScore = score;
     }
   }
 
