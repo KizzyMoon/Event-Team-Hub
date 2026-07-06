@@ -40,6 +40,7 @@ const ITEM_CATEGORIES = [
   "Weapon Parts",
   "Weed"
 ];
+const PAWNABLE_CATEGORY = "Pawnable";
 const WEAPON_CATEGORIES = ["HEAVY", "SMGS", "THROWABLES", "MELEE", "OTHER", "PISTOLS", "SHOTGUNS", "RIFLES", "MODS"];
 const CRIMINAL_ITEM_TAGS = new Set(["blueprints", "drugs", "heist", "shrooms", "weed"]);
 const VEHICLE_CATEGORIES = [
@@ -429,8 +430,12 @@ function escapeHtml(value) {
 }
 
 function formatMoney(value) {
-  const number = Number(String(value || "").replace(/[^\d]/g, ""));
+  const number = priceNumber(value);
   return number ? number.toLocaleString() : "";
+}
+
+function priceNumber(value) {
+  return Number(String(value || "").replace(/[^\d]/g, "")) || 0;
 }
 
 function openImageStore() {
@@ -790,12 +795,15 @@ function categoriesFor(type) {
   }
 
   if (type === "item" || type === "weapon") {
-    const baseCategories = (type === "item" ? ITEM_CATEGORIES : WEAPON_CATEGORIES).filter((category) => !tagWasDeleted(type, category));
+    const baseCategories = type === "item"
+      ? [PAWNABLE_CATEGORY, ...ITEM_CATEGORIES.filter((category) => !tagWasDeleted(type, category))]
+      : WEAPON_CATEGORIES.filter((category) => !tagWasDeleted(type, category));
     const base = baseCategories
       .map((category) => [category, state.items.filter((item) => {
         if (type === "weapon") {
           return (item.kind === "weapon" || (item.kind === "item" && getWeaponCategory(item) === "MODS")) && getWeaponCategory(item) === category;
         }
+        if (category === PAWNABLE_CATEGORY) return item.kind === "item" && priceNumber(item.price) > 0;
         return item.kind === type && getUsefulCategory(item) === category;
       }).length])
       .filter(([, count]) => type === "item" || count > 0)
@@ -953,8 +961,12 @@ function filteredItems() {
     if (activeTab !== "favorites" && item.kind !== type && !isWeaponMod) return false;
     if (activeTab === "favorites" && activeCategory !== "All" && `${item.kind}s` !== activeCategory.toLowerCase()) return false;
     if (activeTab !== "favorites" && activeCategory !== "All") {
-      const category = type === "weapon" ? getWeaponCategory(item) : getUsefulCategory(item);
-      if (category !== activeCategory) return false;
+      if (type === "item" && activeCategory === PAWNABLE_CATEGORY) {
+        if (priceNumber(item.price) <= 0) return false;
+      } else {
+        const category = type === "weapon" ? getWeaponCategory(item) : getUsefulCategory(item);
+        if (category !== activeCategory) return false;
+      }
     }
     if (!search) return true;
     return `${item.name} ${item.code} ${(item.tags || []).join(" ")} ${item.notes || ""}`.toLowerCase().includes(search);
