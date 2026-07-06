@@ -1,5 +1,6 @@
 const PASSWORD = "HLET2025";
 const STORAGE_KEY = "hlet-hub-v1";
+const LISTS_STORAGE_KEY = `${STORAGE_KEY}-lists`;
 const SESSION_KEY = "hlet-session-v1";
 const PAGE_SIZE = 120;
 const EMPTY_TAG_STATE = { object: [], item: [], vehicle: [], weapon: [] };
@@ -31,16 +32,15 @@ const ITEM_CATEGORIES = [
   "Lumber",
   "Medical",
   "Mining",
-  "Pawn Values",
   "Property",
   "Shrooms",
   "Tools",
-  "Valuables",
   "Weapon Mods",
   "Weapon Parts",
   "Weed"
 ];
 const PAWNABLE_CATEGORY = "Pawnable";
+const REMOVED_ITEM_CATEGORIES = new Set(["pawn values", "valuables"]);
 const WEAPON_CATEGORIES = ["HEAVY", "SMGS", "THROWABLES", "MELEE", "OTHER", "PISTOLS", "SHOTGUNS", "RIFLES", "MODS"];
 const CRIMINAL_ITEM_TAGS = new Set(["blueprints", "drugs", "heist", "shrooms", "weed"]);
 const VEHICLE_CATEGORIES = [
@@ -256,6 +256,38 @@ function sitePrompt(body, title = "Input", value = "") {
   return siteDialog({ title, body, input: true, inputLabel: body, value, okText: "Save" });
 }
 
+function readJsonStorage(key, fallback = null) {
+  try {
+    const saved = localStorage.getItem(key);
+    return saved ? JSON.parse(saved) : fallback;
+  } catch (error) {
+    console.error(`Could not read ${key}.`, error);
+    return fallback;
+  }
+}
+
+function normalizeLists(lists = []) {
+  const seen = new Set();
+  return lists
+    .map((list) => ({
+      id: list.id || `list:${crypto.randomUUID()}`,
+      name: String(list.name || "").trim(),
+      createdBy: String(list.createdBy || "Events Team").trim() || "Events Team",
+      itemIds: Array.isArray(list.itemIds) ? list.itemIds.filter(Boolean) : []
+    }))
+    .filter((list) => list.name)
+    .filter((list) => {
+      if (seen.has(list.id)) return false;
+      seen.add(list.id);
+      return true;
+    });
+}
+
+function savedListsBackup() {
+  const backup = readJsonStorage(LISTS_STORAGE_KEY, null);
+  return normalizeLists(Array.isArray(backup) ? backup : backup?.lists || []);
+}
+
 function loadState() {
   const saved = localStorage.getItem(STORAGE_KEY);
   if (saved) {
@@ -271,7 +303,8 @@ function loadState() {
       parsed.teamMembers = normalizeTeamMembers(parsed.teamMembers || DEFAULT_TEAM_MEMBERS);
       parsed.meetings = normalizeMeetings(parsed.meetings || DEFAULT_MEETINGS);
       parsed.tasks = normalizeTasks(parsed.tasks || DEFAULT_TASKS);
-      parsed.lists = removeSeededLists(parsed.lists || []);
+      const savedLists = normalizeLists(parsed.lists || []);
+      parsed.lists = removeSeededLists(savedLists.length ? savedLists : savedListsBackup());
       return mergeSeedItems(parsed);
     } catch (error) {
       console.error("Could not read saved Events Team Hub data.", error);
@@ -397,6 +430,7 @@ function cleanSavedOverrides(overrides = {}, deletedTags = state.deletedTags) {
 function saveState() {
   const deletedTags = { ...EMPTY_TAG_STATE, ...(state.deletedTags || {}) };
   pruneUntaggedObjects();
+  const lists = normalizeLists(state.lists || []);
   const savedState = {
     customItems: (state.customItems || []).map((item) => compactSavedItem(removeDeletedTagsFromItem(item, deletedTags))),
     itemOverrides: compactSavedOverrides(cleanSavedOverrides(state.itemOverrides || {}, deletedTags)),
@@ -408,10 +442,12 @@ function saveState() {
     teamMembers: normalizeTeamMembers(state.teamMembers || DEFAULT_TEAM_MEMBERS),
     meetings: normalizeMeetings(state.meetings || DEFAULT_MEETINGS),
     tasks: normalizeTasks(state.tasks || DEFAULT_TASKS),
-    lists: state.lists || []
+    lists
   };
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(savedState));
+    localStorage.setItem(LISTS_STORAGE_KEY, JSON.stringify({ savedAt: Date.now(), lists }));
+    state.lists = lists;
     return true;
   } catch (error) {
     console.error("Could not save Events Team Hub data.", error);
@@ -627,6 +663,7 @@ function isMetadataTag(tag) {
 }
 
 function normalizeTag(kind, tag) {
+  if (kind === "item" && REMOVED_ITEM_CATEGORIES.has(String(tag || "").trim().toLowerCase())) return "Event & Misc";
   if (kind === "vehicle" && /^offroad wheels$/i.test(String(tag))) return "Offroad";
   return tag;
 }
@@ -642,6 +679,9 @@ function editableTagsFor(item) {
 function customTagsFor(kind) {
   state.customTags = { ...EMPTY_TAG_STATE, ...(state.customTags || {}) };
   state.customTags[kind] = state.customTags[kind] || [];
+  if (kind === "item") {
+    state.customTags.item = state.customTags.item.filter((tag) => !REMOVED_ITEM_CATEGORIES.has(String(tag || "").trim().toLowerCase()));
+  }
   return state.customTags[kind];
 }
 
@@ -1261,6 +1301,8 @@ function createRewardBox(targetValue, allowCriminal) {
   }
 
   const user = currentUser();
+  const previousLists = state.lists.map((list) => ({ ...list, itemIds: [...(list.itemIds || [])] }));
+  const previousActiveListId = activeListId;
   const list = {
     id: crypto.randomUUID(),
     name: `Reward Box $${targetValue.toLocaleString()}`,
@@ -1270,7 +1312,11 @@ function createRewardBox(targetValue, allowCriminal) {
 
   state.lists.unshift(list);
   activeListId = list.id;
-  saveState();
+  if (!saveState()) {
+    state.lists = previousLists;
+    activeListId = previousActiveListId;
+    return;
+  }
   setTab("lists");
   els.rewardSummary.textContent = `${picked.items.length} items picked - total $${picked.total.toLocaleString()}`;
 }
@@ -2418,6 +2464,8 @@ document.addEventListener("click", async (event) => {
   const addToList = event.target.closest("[data-add-to-list]");
   if (addToList) {
     ensureActiveList();
+    const previousLists = state.lists.map((list) => ({ ...list, itemIds: [...(list.itemIds || [])] }));
+    const previousActiveListId = activeListId;
     if (!activeListId) {
       const name = await sitePrompt("List name", "New list");
       if (!name) return;
@@ -2428,7 +2476,11 @@ document.addEventListener("click", async (event) => {
     }
     const list = state.lists.find((entry) => entry.id === activeListId);
     if (list && !list.itemIds.includes(addToList.dataset.addToList)) list.itemIds.push(addToList.dataset.addToList);
-    saveState();
+    if (!saveState()) {
+      state.lists = previousLists;
+      activeListId = previousActiveListId;
+      return;
+    }
     renderAll();
     return;
   }
@@ -2436,6 +2488,7 @@ document.addEventListener("click", async (event) => {
   const removeFromList = event.target.closest("[data-remove-from-list]");
   const removeFromListIndex = event.target.closest("[data-remove-from-list-index]");
   if (removeFromList || removeFromListIndex) {
+    const previousLists = state.lists.map((entry) => ({ ...entry, itemIds: [...(entry.itemIds || [])] }));
     const list = state.lists.find((entry) => entry.id === activeListId);
     if (list && removeFromListIndex) {
       const index = Number(removeFromListIndex.dataset.removeFromListIndex);
@@ -2443,7 +2496,10 @@ document.addEventListener("click", async (event) => {
     } else if (list && removeFromList) {
       list.itemIds = list.itemIds.filter((id) => id !== removeFromList.dataset.removeFromList);
     }
-    saveState();
+    if (!saveState()) {
+      state.lists = previousLists;
+      return;
+    }
     renderAll();
     return;
   }
@@ -2577,10 +2633,16 @@ document.querySelector("[data-new-list]").addEventListener("click", async () => 
   const name = await sitePrompt("List name", "New list");
   if (!name) return;
   const user = currentUser();
+  const previousLists = state.lists.map((list) => ({ ...list, itemIds: [...(list.itemIds || [])] }));
+  const previousActiveListId = activeListId;
   const list = { id: crypto.randomUUID(), name, createdBy: user?.name || "Events Team", itemIds: [] };
   state.lists.unshift(list);
   activeListId = list.id;
-  saveState();
+  if (!saveState()) {
+    state.lists = previousLists;
+    activeListId = previousActiveListId;
+    return;
+  }
   setTab("lists");
 });
 
@@ -2624,9 +2686,15 @@ document.querySelector("[data-copy-list]").addEventListener("click", async () =>
 document.querySelector("[data-delete-list]").addEventListener("click", async () => {
   const list = state.lists.find((entry) => entry.id === activeListId);
   if (!list || !(await siteConfirm(`Delete list ${list.name}?`, "Delete list"))) return;
+  const previousLists = state.lists.map((entry) => ({ ...entry, itemIds: [...(entry.itemIds || [])] }));
+  const previousActiveListId = activeListId;
   state.lists = state.lists.filter((entry) => entry.id !== list.id);
   activeListId = state.lists[0]?.id || "";
-  saveState();
+  if (!saveState()) {
+    state.lists = previousLists;
+    activeListId = previousActiveListId;
+    return;
+  }
   renderAll();
 });
 
