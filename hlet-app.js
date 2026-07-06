@@ -664,7 +664,13 @@ function getUsefulCategory(item) {
   }
 
   const preferred = tags.find((tag) => !isMetadataTag(tag));
-  return preferred ? normalizeTag(item.kind, preferred) : item.dlc || "Unsorted";
+  if (preferred) return normalizeTag(item.kind, preferred);
+  if (item.kind === "item") return fallbackItemCategory(state.deletedTags);
+  return item.dlc || "Unsorted";
+}
+
+function fallbackItemCategory(deletedTags = EMPTY_TAG_STATE) {
+  return ITEM_CATEGORIES.find((category) => !tagWasDeletedIn(deletedTags, "item", category)) || "Event & Misc";
 }
 
 function isMetadataTag(tag) {
@@ -678,7 +684,7 @@ function normalizeTag(kind, tag) {
 }
 
 function editableTagsFor(item) {
-  return (item.tags || [])
+  return cleanItemTags(item)
     .map((tag) => normalizeTag(item.kind, tag))
     .filter((tag, index, tags) => tags.indexOf(tag) === index)
     .filter((tag) => !isMetadataTag(tag))
@@ -723,11 +729,27 @@ function tagWasDeletedIn(deletedTags, kind, tag) {
 }
 
 function removeDeletedTagsFromItem(item, deletedTags = state.deletedTags) {
-  if (!item?.tags?.length) return item;
+  if (!item) return item;
+  const tags = cleanItemTags(item, deletedTags);
   return {
     ...item,
-    tags: item.tags.filter((tag) => !tagWasDeletedIn(deletedTags, item.kind, tag))
+    tags
   };
+}
+
+function cleanItemTags(item, deletedTags = state.deletedTags) {
+  const tags = (item?.tags || [])
+    .map((tag) => normalizeTag(item.kind, tag))
+    .filter(Boolean)
+    .filter((tag) => !isMetadataTag(tag))
+    .filter((tag) => !tagWasDeletedIn(deletedTags, item.kind, tag));
+
+  const unique = tags.filter((tag, index) => tags.findIndex((entry) => entry.toLowerCase() === tag.toLowerCase()) === index);
+  if (item?.kind === "item") {
+    const active = unique.filter((tag) => ITEM_CATEGORIES.some((category) => category.toLowerCase() === tag.toLowerCase()));
+    return active.length ? active : [fallbackItemCategory(deletedTags)];
+  }
+  return unique;
 }
 
 function isUntaggedObject(item) {
@@ -1161,7 +1183,8 @@ function openTagEditor(item) {
 function renderTagEditor() {
   const item = state.items.find((entry) => entry.id === editingTagItemId);
   if (item?.kind === "item" || item?.kind === "weapon" || item?.kind === "vehicle") {
-    const categories = item.kind === "weapon" ? WEAPON_CATEGORIES : item.kind === "item" ? ITEM_CATEGORIES : VEHICLE_CATEGORIES;
+    const categories = (item.kind === "weapon" ? WEAPON_CATEGORIES : item.kind === "item" ? ITEM_CATEGORIES : VEHICLE_CATEGORIES)
+      .filter((category) => !tagWasDeleted(item.kind, category));
     const selected = editingTags[0] || categories[0];
     els.tagEditor.innerHTML = categories.map((category) => {
       return `<button class="tag-choice ${category === selected ? "active" : ""}" data-pick-category-tag="${escapeHtml(category)}" type="button">${escapeHtml(displayCategory(item.kind, category))}</button>`;
@@ -1195,7 +1218,8 @@ function addEditingTag() {
 function saveEditedTags() {
   const item = state.items.find((entry) => entry.id === editingTagItemId);
   if (!item) return;
-  item.tags = item.kind === "weapon" ? [editingTags[0] || "OTHER"] : item.kind === "item" ? [editingTags[0] || ITEM_CATEGORIES[0]] : item.kind === "vehicle" ? [editingTags[0] || VEHICLE_CATEGORIES[0]] : [...editingTags];
+  item.tags = item.kind === "weapon" ? [editingTags[0] || "OTHER"] : item.kind === "item" ? [editingTags[0] || fallbackItemCategory(state.deletedTags)] : item.kind === "vehicle" ? [editingTags[0] || VEHICLE_CATEGORIES[0]] : [...editingTags];
+  item.tags = cleanItemTags(item);
   saveItemOverride(item);
   saveState();
   renderAll();
