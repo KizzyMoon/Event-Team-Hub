@@ -204,7 +204,7 @@ nav span {
 
 .toolbar {
   display: grid;
-  grid-template-columns: minmax(160px, 300px) minmax(0, 1fr) minmax(140px, 220px);
+  grid-template-columns: minmax(160px, 300px) minmax(0, 1fr) minmax(110px, 150px) minmax(130px, 170px) minmax(140px, 220px);
   gap: 7px;
   align-items: center;
   padding: 7px 20px;
@@ -219,6 +219,12 @@ nav span {
   height: 30px;
   padding: 5px 9px;
   font-size: 0.78rem;
+}
+
+.toolbar button.danger {
+  background: transparent;
+  border-color: rgba(255, 92, 103, 0.85);
+  color: #ffccd1;
 }
 
 .category-chips {
@@ -404,6 +410,20 @@ nav span {
 .flag-button.active {
   border-color: rgba(255, 92, 103, 0.8);
   color: #ff5c67;
+}
+
+.bulk-select {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 0.74rem;
+  font-weight: 800;
+}
+
+.bulk-select input {
+  width: 16px;
+  height: 16px;
 }
 
 .card-bottom-actions [data-edit-item],
@@ -1039,6 +1059,35 @@ dialog::backdrop {
 [data-message-form] {
   display: grid;
   gap: 12px;
+}
+
+[data-list-picker-dialog] form {
+  display: grid;
+  gap: 12px;
+}
+
+.list-picker-options {
+  display: grid;
+  gap: 8px;
+  max-height: 420px;
+  overflow: auto;
+}
+
+.list-picker-options button {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  min-height: 44px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: var(--panel-2);
+  color: var(--text);
+  padding: 10px 12px;
+  font-weight: 900;
+}
+
+.list-picker-options button:hover {
+  border-color: rgba(194, 112, 255, 0.65);
 }
 
 .message-body {

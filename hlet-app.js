@@ -3,6 +3,7 @@ const STORAGE_KEY = "hlet-hub-v1";
 const LISTS_STORAGE_KEY = `${STORAGE_KEY}-lists`;
 const SESSION_KEY = "hlet-session-v1";
 const PAGE_SIZE = 120;
+const ATTENDANCE_WINDOW_DAYS = 90;
 const EMPTY_TAG_STATE = { object: [], item: [], vehicle: [], weapon: [] };
 const DEFAULT_TEAM_MEMBERS = ["Licora", "Kai", "Maya", "Jax", "Aria", "Ryn", "Nova"];
 const DEFAULT_MEETINGS = [
@@ -96,6 +97,9 @@ let editingTags = [];
 let editingItemId = "";
 let pendingImageData = "";
 let storedImages = {};
+let bulkDeleteMode = false;
+let bulkDeleteObjectIds = new Set();
+let pendingListItemId = "";
 let meetingView = "dashboard";
 let calendarDate = new Date();
 let selectedMeetingId = "";
@@ -179,6 +183,8 @@ const els = {
   search: document.querySelector("[data-search]"),
   categories: document.querySelector("[data-categories]"),
   categoryChips: document.querySelector("[data-category-chips]"),
+  toggleBulkDelete: document.querySelector("[data-toggle-bulk-delete]"),
+  deleteSelectedObjects: document.querySelector("[data-delete-selected-objects]"),
   title: document.querySelector("[data-title]"),
   results: document.querySelector("[data-results]"),
   grid: document.querySelector("[data-grid]"),
@@ -200,6 +206,9 @@ const els = {
   rewardDialog: document.querySelector("[data-reward-dialog]"),
   rewardForm: document.querySelector("[data-reward-form]"),
   rewardSummary: document.querySelector("[data-reward-summary]"),
+  listPickerDialog: document.querySelector("[data-list-picker-dialog]"),
+  listPickerTitle: document.querySelector("[data-list-picker-title]"),
+  listPickerOptions: document.querySelector("[data-list-picker-options]"),
   listMenu: document.querySelector("[data-list-menu]"),
   listTitle: document.querySelector("[data-list-title]"),
   listSubtitle: document.querySelector("[data-list-subtitle]"),
@@ -1121,6 +1130,9 @@ function displayCategory(kind, category) {
 function renderCard(item, options = {}) {
   const isListCard = Boolean(options.removeFromList);
   const listButton = `<button data-add-to-list="${escapeHtml(item.id)}" type="button">+ List</button>`;
+  const bulkSelect = bulkDeleteMode && item.kind === "object" && !isListCard
+    ? `<label class="bulk-select"><input data-bulk-select-object="${escapeHtml(item.id)}" type="checkbox" ${bulkDeleteObjectIds.has(item.id) ? "checked" : ""} /> Select</label>`
+    : "";
   const editTagsButton = !isListCard && (item.kind === "object" || item.kind === "item" || item.kind === "vehicle" || item.kind === "weapon")
     ? `<button data-edit-item="${escapeHtml(item.id)}" type="button">Edit</button>`
     : "";
@@ -1142,6 +1154,7 @@ function renderCard(item, options = {}) {
         ${visibleTags(item).map((tag) => `<span class="tag">${escapeHtml(tag)}</span>`).join("")}
         ${price}
       </div>
+      ${bulkSelect}
       ${isListCard ? `<div class="card-actions list-card-actions"><button class="card-remove" ${removeAttr} type="button">Remove</button></div>` : ""}
       ${isListCard ? "" : `<div class="card-bottom-actions">
         <button class="flag-button ${item.blacklisted ? "active" : ""}" data-toggle-blacklist="${escapeHtml(item.id)}" type="button" aria-label="${item.blacklisted ? "Remove blacklist" : "Mark blacklisted"}">⚑</button>
@@ -1253,6 +1266,17 @@ function renderBrowser() {
   if (items.length > visible.length) {
     els.grid.insertAdjacentHTML("beforeend", `<button class="load-more-card" data-load-more type="button">Load more (${(items.length - visible.length).toLocaleString()} left)</button>`);
   }
+  renderBulkDeleteControls();
+}
+
+function renderBulkDeleteControls() {
+  const show = activeTab === "objects";
+  els.toggleBulkDelete?.classList.toggle("is-hidden", !show);
+  els.deleteSelectedObjects?.classList.toggle("is-hidden", !show || !bulkDeleteMode);
+  if (!show) return;
+  els.toggleBulkDelete.textContent = bulkDeleteMode ? "Cancel select" : "Select objects";
+  els.deleteSelectedObjects.textContent = `Delete selected${bulkDeleteObjectIds.size ? ` (${bulkDeleteObjectIds.size})` : ""}`;
+  els.deleteSelectedObjects.disabled = bulkDeleteObjectIds.size === 0;
 }
 
 function renderCounts() {
@@ -1267,6 +1291,80 @@ function renderCounts() {
 function ensureActiveList() {
   if (activeListId && state.lists.some((list) => list.id === activeListId)) return;
   activeListId = state.lists[0]?.id || "";
+}
+
+function openListPicker(itemId) {
+  const item = state.items.find((entry) => entry.id === itemId);
+  if (!item) return;
+  pendingListItemId = itemId;
+  const lists = [...(state.lists || [])].sort((a, b) => sortText(a.name, b.name));
+  els.listPickerTitle.textContent = `Add ${item.name} to list`;
+  els.listPickerOptions.innerHTML = lists.length ? lists.map((list) => {
+    const alreadyAdded = (list.itemIds || []).includes(itemId);
+    return `
+      <button data-pick-list="${escapeHtml(list.id)}" type="button" ${alreadyAdded ? "disabled" : ""}>
+        <span>${escapeHtml(list.name)}</span>
+        <small>${alreadyAdded ? "Already added" : `${(list.itemIds || []).length.toLocaleString()} items`}</small>
+      </button>
+    `;
+  }).join("") : `<p class="muted">No lists yet. Create one from the Lists tab first.</p>`;
+  els.listPickerDialog.showModal();
+}
+
+function addPendingItemToList(listId) {
+  if (!pendingListItemId) return false;
+  const list = state.lists.find((entry) => entry.id === listId);
+  if (!list) return false;
+  list.itemIds = list.itemIds || [];
+  if (!list.itemIds.includes(pendingListItemId)) list.itemIds.push(pendingListItemId);
+  if (!saveState()) return false;
+  activeListId = list.id;
+  pendingListItemId = "";
+  els.listPickerDialog.close();
+  renderAllInPlace({ keepMissingCategory: true });
+  return true;
+}
+
+async function deleteSelectedObjects() {
+  const ids = [...bulkDeleteObjectIds];
+  if (!ids.length) return;
+  if (!(await siteConfirm(`Delete ${ids.length.toLocaleString()} selected object${ids.length === 1 ? "" : "s"}?`, "Delete selected objects"))) return;
+  const idSet = new Set(ids);
+  const selectedObjects = state.items.filter((item) => idSet.has(item.id) && item.kind === "object");
+  if (!selectedObjects.length) return;
+  const previousItems = state.items;
+  const previousCustomItems = state.customItems || [];
+  const previousOverrides = { ...(state.itemOverrides || {}) };
+  const previousDeletedItemIds = [...(state.deletedItemIds || [])];
+  const previousDeletedItemCodes = [...(state.deletedItemCodes || [])];
+  const previousLists = state.lists.map((list) => ({ ...list, itemIds: [...(list.itemIds || [])] }));
+  const previousFavoritesByUser = Object.fromEntries(Object.entries(state.favoritesByUser || {}).map(([key, ids]) => [key, [...ids]]));
+
+  selectedObjects.forEach(rememberDeletedItem);
+  state.items = state.items.filter((item) => !idSet.has(item.id));
+  state.customItems = (state.customItems || []).filter((item) => !idSet.has(item.id));
+  state.itemOverrides = Object.fromEntries(Object.entries(state.itemOverrides || {}).filter(([id]) => !idSet.has(id)));
+  state.lists.forEach((list) => list.itemIds = (list.itemIds || []).filter((id) => !idSet.has(id)));
+  Object.values(state.favoritesByUser || {}).forEach((ids) => {
+    for (let index = ids.length - 1; index >= 0; index -= 1) {
+      if (idSet.has(ids[index])) ids.splice(index, 1);
+    }
+  });
+
+  if (!saveState()) {
+    state.items = previousItems;
+    state.customItems = previousCustomItems;
+    state.itemOverrides = previousOverrides;
+    state.deletedItemIds = previousDeletedItemIds;
+    state.deletedItemCodes = previousDeletedItemCodes;
+    state.lists = previousLists;
+    state.favoritesByUser = previousFavoritesByUser;
+    return;
+  }
+
+  bulkDeleteObjectIds.clear();
+  bulkDeleteMode = false;
+  renderAllInPlace({ keepMissingCategory: true });
 }
 
 function renderLists() {
@@ -1538,6 +1636,10 @@ function setTab(tab) {
   activeTab = tab;
   renderLimit = PAGE_SIZE;
   activeCategory = tab === "favorites" ? "Objects" : "All";
+  if (tab !== "objects") {
+    bulkDeleteMode = false;
+    bulkDeleteObjectIds.clear();
+  }
   els.tabs.forEach((button) => button.classList.toggle("active", button.dataset.tab === tab));
   els.search.placeholder = {
     objects: "Search objects...",
@@ -1623,7 +1725,7 @@ function isUpcomingMeeting(meeting) {
 }
 
 function meetingAttendanceEntries() {
-  return (state.meetings || []).filter((meeting) => meeting.date && meeting.date >= dateDaysAgo(30) && meeting.date <= todayDateString());
+  return (state.meetings || []).filter((meeting) => meeting.date && meeting.date >= dateDaysAgo(ATTENDANCE_WINDOW_DAYS) && meeting.date <= todayDateString());
 }
 
 function dateDaysAgo(days) {
@@ -1662,11 +1764,12 @@ function overallAttendance() {
 }
 
 function meetingAttendanceSummary(meeting) {
+  const members = normalizeTeamMembers(state.teamMembers || []);
   const entries = Object.values(meeting.attendance || {});
   const attended = entries.filter((value) => value === "attended").length;
   const missed = entries.filter((value) => value === "missed").length;
   const unavailable = entries.filter((value) => value === "unavailable").length;
-  return { attended, missed, unavailable, total: entries.length };
+  return { attended, missed, unavailable, total: members.length || entries.length };
 }
 
 function meetingAttendanceDetail(meeting) {
@@ -1805,7 +1908,7 @@ function renderMeetingDashboard() {
         <td>${escapeHtml(meeting.name)}</td>
         <td>${escapeHtml(formatMeetingDate(meeting))}</td>
         <td><span class="pill ${statusClass}">${escapeHtml(meeting.status === "upcoming" ? "Upcoming" : meeting.status)}</span></td>
-        <td>${attendance.total ? `${attendance.attended} up / ${attendance.missed} missed / ${attendance.unavailable} unavailable` : "-"}</td>
+        <td>${attendance.total ? `${attendance.attended} / ${attendance.total}` : "-"}</td>
         <td>${doneTasks} / ${linkedTasks.length}</td>
         <td>
           <button data-meeting-note="${escapeHtml(meeting.id)}" type="button">View</button>
@@ -1892,7 +1995,7 @@ function openAttendanceDashboard() {
       <article class="archive-detail-card">
         <div>
           <h4>${escapeHtml(name)}</h4>
-          <span>${value}% attendance over the last 30 days</span>
+          <span>${value}% attendance over the last ${ATTENDANCE_WINDOW_DAYS} days</span>
         </div>
         <div class="mini-bar"><span style="width: ${value}%"></span></div>
       </article>
@@ -2516,6 +2619,17 @@ document.addEventListener("click", async (event) => {
     return;
   }
 
+  const bulkSelect = event.target.closest("[data-bulk-select-object]");
+  if (bulkSelect) {
+    if (bulkSelect.checked) {
+      bulkDeleteObjectIds.add(bulkSelect.dataset.bulkSelectObject);
+    } else {
+      bulkDeleteObjectIds.delete(bulkSelect.dataset.bulkSelectObject);
+    }
+    renderBulkDeleteControls();
+    return;
+  }
+
   const card = event.target.closest("[data-item-id]");
   const action = event.target.closest("button, input, select, textarea, a");
   if (card && !action) {
@@ -2561,25 +2675,7 @@ document.addEventListener("click", async (event) => {
 
   const addToList = event.target.closest("[data-add-to-list]");
   if (addToList) {
-    ensureActiveList();
-    const previousLists = state.lists.map((list) => ({ ...list, itemIds: [...(list.itemIds || [])] }));
-    const previousActiveListId = activeListId;
-    if (!activeListId) {
-      const name = await sitePrompt("List name", "New list");
-      if (!name) return;
-      const user = currentUser();
-      const list = { id: crypto.randomUUID(), name, createdBy: user?.name || "Events Team", itemIds: [] };
-      state.lists.unshift(list);
-      activeListId = list.id;
-    }
-    const list = state.lists.find((entry) => entry.id === activeListId);
-    if (list && !list.itemIds.includes(addToList.dataset.addToList)) list.itemIds.push(addToList.dataset.addToList);
-    if (!saveState()) {
-      state.lists = previousLists;
-      activeListId = previousActiveListId;
-      return;
-    }
-    renderAll();
+    openListPicker(addToList.dataset.addToList);
     return;
   }
 
@@ -2605,7 +2701,22 @@ document.addEventListener("click", async (event) => {
 });
 
 document.querySelector("[data-open-add]").addEventListener("click", openAddItemDialog);
+els.toggleBulkDelete.addEventListener("click", () => {
+  bulkDeleteMode = !bulkDeleteMode;
+  bulkDeleteObjectIds.clear();
+  renderAllInPlace({ keepMissingCategory: true });
+});
+els.deleteSelectedObjects.addEventListener("click", deleteSelectedObjects);
 document.querySelector("[data-close-dialog]").addEventListener("click", () => els.itemDialog.close());
+document.querySelector("[data-close-list-picker]").addEventListener("click", () => {
+  pendingListItemId = "";
+  els.listPickerDialog.close();
+});
+els.listPickerOptions.addEventListener("click", (event) => {
+  const button = event.target.closest("[data-pick-list]");
+  if (!button) return;
+  addPendingItemToList(button.dataset.pickList);
+});
 els.itemDelete.addEventListener("click", async () => {
   if (!editingItemId) return;
   const deleted = await deleteItemById(editingItemId);

@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Events Team Hub</title>
-    <link rel="stylesheet" href="hlet-styles.css?v=weapon-mods-to-weapons-20260706" />
+    <link rel="stylesheet" href="hlet-styles.css?v=list-picker-bulk-delete-20260706" />
   </head>
   <body>
     <section class="login-view" data-login-view>
@@ -46,6 +46,8 @@
         <select data-categories aria-label="Category">
           <option value="All">All categories</option>
         </select>
+        <button class="object-bulk-control is-hidden" data-toggle-bulk-delete type="button">Select objects</button>
+        <button class="object-bulk-control danger is-hidden" data-delete-selected-objects type="button">Delete selected</button>
         <button data-open-add type="button">Add item</button>
       </section>
 
@@ -138,7 +140,7 @@
           <div class="meeting-main">
             <div class="meeting-stats">
               <article class="meeting-panel stat-panel">
-                <span>Overall Attendance (Last 30 Days)</span>
+                <span>Overall Attendance (Last 90 Days)</span>
                 <strong data-overall-attendance>0%</strong>
                 <div class="mini-bar"><span data-overall-attendance-bar style="width: 0%"></span></div>
                 <small data-overall-attendance-note>No attendance logged yet.</small>
@@ -180,7 +182,7 @@
 
           <aside class="meeting-side">
             <article class="meeting-panel">
-              <h3>Attendance Overview (Last 30 Days)</h3>
+              <h3>Attendance Overview (Last 90 Days)</h3>
               <div class="attendance-list" data-attendance-list></div>
               <button class="wide-button" data-meeting-action="attendance-dashboard" type="button">View Full Attendance Dashboard</button>
             </article>
@@ -259,6 +261,16 @@
         <div class="dialog-actions">
           <button data-close-reward-dialog type="button">Cancel</button>
           <button type="submit">Create</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog data-list-picker-dialog>
+      <form method="dialog">
+        <h2 data-list-picker-title>Add to list</h2>
+        <div class="list-picker-options" data-list-picker-options></div>
+        <div class="dialog-actions">
+          <button data-close-list-picker type="button">Cancel</button>
         </div>
       </form>
     </dialog>
@@ -393,7 +405,7 @@
       </form>
     </dialog>
 
-    <script src="hlet-data.js?v=weapon-mods-to-weapons-20260706"></script>
-    <script src="hlet-app.js?v=weapon-mods-to-weapons-20260706"></script>
+    <script src="hlet-data.js?v=list-picker-bulk-delete-20260706"></script>
+    <script src="hlet-app.js?v=list-picker-bulk-delete-20260706"></script>
   </body>
 </html>
