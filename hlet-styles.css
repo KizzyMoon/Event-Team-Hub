@@ -6,6 +6,7 @@
   --line: #2b2e3e;
   --text: #f4f0ff;
   --muted: #8ea0c4;
+  --accent: #c37aff;
   --purple: #c37aff;
   --purple-2: #8e6bff;
   --red: #ff5c67;
@@ -243,6 +244,7 @@ nav span {
   border-color: var(--accent);
   background: var(--accent);
   color: #13091d;
+  box-shadow: 0 0 0 1px rgba(195, 122, 255, 0.32);
 }
 
 .browser,
