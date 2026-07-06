@@ -1218,11 +1218,13 @@ function addEditingTag() {
 function saveEditedTags() {
   const item = state.items.find((entry) => entry.id === editingTagItemId);
   if (!item) return;
+  const previousCategory = activeCategory;
   item.tags = item.kind === "weapon" ? [editingTags[0] || "OTHER"] : item.kind === "item" ? [editingTags[0] || fallbackItemCategory(state.deletedTags)] : item.kind === "vehicle" ? [editingTags[0] || VEHICLE_CATEGORIES[0]] : [...editingTags];
   item.tags = cleanItemTags(item);
   saveItemOverride(item);
   saveState();
-  renderAll();
+  activeCategory = previousCategory;
+  renderAllInPlace({ keepMissingCategory: true });
 }
 
 function renderBrowser() {
@@ -1506,6 +1508,13 @@ function renderAll(options = {}) {
   renderSettings();
   renderTeamDirectory();
   renderMeetingDashboard();
+}
+
+function renderAllInPlace(options = {}) {
+  const scrollX = window.scrollX;
+  const scrollY = window.scrollY;
+  renderAll(options);
+  requestAnimationFrame(() => window.scrollTo(scrollX, scrollY));
 }
 
 function setTab(tab) {
@@ -2486,7 +2495,7 @@ document.addEventListener("click", async (event) => {
     event.stopPropagation();
     const itemCount = filteredItems().length;
     renderLimit = Math.min(itemCount, renderLimit + PAGE_SIZE);
-    renderAll();
+    renderAllInPlace();
     return;
   }
 
@@ -2504,7 +2513,7 @@ document.addEventListener("click", async (event) => {
   const favorite = event.target.closest("[data-toggle-favorite]");
   if (favorite) {
     toggleFavorite(favorite.dataset.toggleFavorite);
-    renderAll();
+    renderAllInPlace();
     return;
   }
 
@@ -2515,7 +2524,7 @@ document.addEventListener("click", async (event) => {
     item.blacklisted = !item.blacklisted;
     saveItemOverride(item);
     saveState();
-    renderAll();
+    renderAllInPlace({ keepMissingCategory: true });
     return;
   }
 
@@ -2650,6 +2659,10 @@ els.itemForm.addEventListener("submit", async (event) => {
   event.preventDefault();
   const form = Object.fromEntries(new FormData(els.itemForm).entries());
   const existingItem = editingItemId ? state.items.find((item) => item.id === editingItemId) : null;
+  const wasEditing = Boolean(existingItem);
+  const previousTab = activeTab;
+  const previousCategory = activeCategory;
+  const previousRenderLimit = renderLimit;
   const uploadedFile = els.itemForm.elements.imageFile.files?.[0];
   if (uploadedFile) await attachImageFile(uploadedFile, "Uploaded");
 
@@ -2698,7 +2711,13 @@ els.itemForm.addEventListener("submit", async (event) => {
   resetImageUploadLabel();
   renderCustomCategorySelect();
   els.itemDialog.close();
-  setTab(targetTab);
+  if (wasEditing && previousTab === targetTab) {
+    activeCategory = previousCategory;
+    renderLimit = previousRenderLimit;
+    renderAllInPlace({ keepMissingCategory: true });
+  } else {
+    setTab(targetTab);
+  }
 });
 
 document.querySelector("[data-new-list]").addEventListener("click", async () => {
