@@ -319,10 +319,10 @@ nav span {
 
 .item-card,
 .weapon-card {
-  grid-template-rows: 34px 30px 34px;
-  height: 150px;
+  grid-template-rows: 34px 30px minmax(30px, auto) 28px;
+  height: 166px;
   gap: 8px;
-  padding: 12px 12px 42px;
+  padding: 12px;
 }
 
 .weapon-card .thumb,
@@ -361,6 +361,11 @@ nav span {
   align-items: center;
 }
 
+.item-card .card-bottom-actions,
+.weapon-card .card-bottom-actions {
+  position: static;
+}
+
 .flag-button {
   display: grid;
   place-items: center;
@@ -380,8 +385,8 @@ nav span {
 
 .card-bottom-actions [data-edit-item],
 .card-bottom-actions [data-add-to-list] {
-  min-height: 24px;
-  height: 24px;
+  min-height: 26px;
+  height: 26px;
   padding: 3px 8px;
   font-size: 0.72rem;
 }
@@ -643,9 +648,38 @@ nav span {
   font-weight: 900;
 }
 
+.team-member-main {
+  display: grid;
+  justify-items: start;
+  gap: 4px;
+  min-height: 0;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  padding: 0;
+  text-align: left;
+}
+
+.team-member-main small {
+  color: var(--muted);
+  font-size: 0.74rem;
+}
+
+.team-member-main:hover span {
+  color: #d8b5ff;
+}
+
 .team-member-card button {
   min-height: 28px;
   padding: 4px 8px;
+}
+
+.team-member-card .team-member-main {
+  min-height: 0;
+  padding: 0;
+}
+
+.team-member-card > button:last-child {
   border-color: var(--red);
   color: #ffb9bf;
   font-size: 0.72rem;

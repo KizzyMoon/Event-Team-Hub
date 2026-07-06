@@ -155,6 +155,7 @@ const els = {
   allMeetingsDialog: document.querySelector("[data-all-meetings-dialog]"),
   allMeetingsSubtitle: document.querySelector("[data-all-meetings-subtitle]"),
   allMeetingsContent: document.querySelector("[data-all-meetings-content]"),
+  meetingArchiveList: document.querySelector("[data-meeting-archive-list]"),
   messageDialog: document.querySelector("[data-message-dialog]"),
   messageForm: document.querySelector("[data-message-form]"),
   messageTitle: document.querySelector("[data-message-title]"),
@@ -1297,9 +1298,7 @@ function allTagCountsFor(kind) {
       if (tagWasDeleted("item", tag)) return;
       if (!counts.has(tag)) counts.set(tag, 0);
     });
-    return [...counts.entries()]
-      .filter(([tag, count]) => count > 0 || customTagsFor("item").some((entry) => entry.toLowerCase() === tag.toLowerCase()))
-      .sort(([a], [b]) => sortText(a, b));
+    return [...counts.entries()].sort(([a], [b]) => sortText(a, b));
   }
 
   if (kind === "weapon") {
@@ -1476,12 +1475,22 @@ function attendanceForMember(name) {
   const meetings = meetingAttendanceEntries();
   if (!meetings.length) return 0;
   const attended = meetings.filter((meeting) => {
-    if (meeting.attendance && Object.prototype.hasOwnProperty.call(meeting.attendance, name)) {
+    if (meeting.attendance && Object.keys(meeting.attendance).length) {
       return meeting.attendance[name] === "attended";
     }
     return meeting.status === "attended";
   }).length;
   return Math.round((attended / meetings.length) * 100);
+}
+
+function memberAttendanceStats(name) {
+  const meetings = (state.meetings || []).filter((meeting) => meeting.date && meeting.date <= todayDateString() && meeting.attendance && Object.prototype.hasOwnProperty.call(meeting.attendance, name));
+  const attended = meetings.filter((meeting) => meeting.attendance[name] === "attended").length;
+  const missed = meetings.filter((meeting) => meeting.attendance[name] === "missed").length;
+  const unavailable = meetings.filter((meeting) => meeting.attendance[name] === "unavailable").length;
+  const total = meetings.length;
+  const percentage = total ? Math.round((attended / total) * 100) : 0;
+  return { attended, missed, unavailable, total, percentage };
 }
 
 function overallAttendance() {
@@ -1607,6 +1616,7 @@ function renderMeetingDashboard() {
   els.meetingsMonthCount.textContent = thisMonthMeetings.length.toLocaleString();
   els.meetingsMonthSummary.textContent = `${monthUpcoming.toLocaleString()} upcoming + ${monthCompleted.toLocaleString()} completed`;
   renderAttendanceOverview();
+  renderMeetingArchiveList();
 
   els.upcomingMeeting.innerHTML = upcoming ? `
     <div class="upcoming-card">
@@ -1697,6 +1707,20 @@ function openMeetingArchive(year = "") {
   if (!els.archiveDialog.open) els.archiveDialog.showModal();
 }
 
+function renderMeetingArchiveList() {
+  const counts = new Map();
+  (state.meetings || [])
+    .filter((meeting) => meeting.status !== "upcoming")
+    .forEach((meeting) => {
+      const year = meetingYear(meeting);
+      counts.set(year, (counts.get(year) || 0) + 1);
+    });
+  const rows = [...counts.entries()].sort(([a], [b]) => String(b).localeCompare(String(a)));
+  els.meetingArchiveList.innerHTML = rows.length ? rows.map(([year, count]) => {
+    return `<button data-meeting-archive="${escapeHtml(year)}" type="button"><span>${escapeHtml(year)}</span><em>${count.toLocaleString()} meeting${count === 1 ? "" : "s"}</em></button>`;
+  }).join("") : `<span class="muted">No archived meetings yet.</span>`;
+}
+
 function openAttendanceDashboard() {
   const members = normalizeTeamMembers(state.teamMembers || []);
   els.archiveTitle.textContent = "Attendance Dashboard";
@@ -1713,6 +1737,37 @@ function openAttendanceDashboard() {
       </article>
     `;
   }).join("") : `<p class="muted">No team members yet.</p>`;
+  if (!els.archiveDialog.open) els.archiveDialog.showModal();
+}
+
+function openTeamMemberStats(name) {
+  const stats = memberAttendanceStats(name);
+  const markedMeetings = (state.meetings || []).filter((meeting) => meeting.attendance && Object.prototype.hasOwnProperty.call(meeting.attendance, name));
+  els.archiveTitle.textContent = `${name} Attendance`;
+  els.archiveSubtitle.textContent = `${stats.percentage}% - ${stats.attended}/${stats.total} attended`;
+  els.archiveContent.innerHTML = `
+    <article class="archive-detail-card">
+      <div>
+        <h4>${stats.percentage}% attendance</h4>
+        <span>${stats.attended}/${stats.total} meetings attended</span>
+      </div>
+      <div class="mini-bar"><span style="width: ${stats.percentage}%"></span></div>
+      <div class="archive-detail-meta">
+        <span class="pill good">${stats.attended} attended</span>
+        <span class="pill bad">${stats.missed} missed</span>
+        <span class="pill warn">${stats.unavailable} unavailable</span>
+      </div>
+    </article>
+    ${markedMeetings.length ? markedMeetings.map((meeting) => `
+      <article class="archive-detail-card">
+        <div>
+          <h4>${escapeHtml(meeting.name)}</h4>
+          <span>${escapeHtml(formatMeetingDate(meeting))}</span>
+        </div>
+        <span>${escapeHtml(meeting.attendance[name] === "attended" ? "Turned up" : meeting.attendance[name] === "missed" ? "Did not turn up" : "Unavailable")}</span>
+      </article>
+    `).join("") : `<p class="muted">No attendance has been marked for this team member yet.</p>`}
+  `;
   if (!els.archiveDialog.open) els.archiveDialog.showModal();
 }
 
@@ -1875,12 +1930,18 @@ function showMeetingView(view) {
 function renderTeamDirectory() {
   state.teamMembers = normalizeTeamMembers(state.teamMembers || DEFAULT_TEAM_MEMBERS);
   els.teamMemberCount.textContent = `${state.teamMembers.length} member${state.teamMembers.length === 1 ? "" : "s"}`;
-  els.teamDirectoryGrid.innerHTML = state.teamMembers.map((name) => `
+  els.teamDirectoryGrid.innerHTML = state.teamMembers.map((name) => {
+    const stats = memberAttendanceStats(name);
+    return `
     <article class="team-member-card">
-      <span>${escapeHtml(name)}</span>
+      <button class="team-member-main" data-team-member-stats="${escapeHtml(name)}" type="button">
+        <span>${escapeHtml(name)}</span>
+        <small>${stats.percentage}% - ${stats.attended}/${stats.total} attended</small>
+      </button>
       <button data-remove-team-member="${escapeHtml(name)}" type="button" aria-label="Remove ${escapeHtml(name)}">Remove</button>
     </article>
-  `).join("");
+  `;
+  }).join("");
 }
 
 function handleMeetingAction(action) {
@@ -2009,6 +2070,12 @@ els.meetings.addEventListener("click", async (event) => {
     state.teamMembers = normalizeTeamMembers((state.teamMembers || []).filter((member) => member !== name));
     saveState();
     renderTeamDirectory();
+    return;
+  }
+
+  const memberStats = event.target.closest("[data-team-member-stats]");
+  if (memberStats) {
+    openTeamMemberStats(memberStats.dataset.teamMemberStats);
     return;
   }
 
