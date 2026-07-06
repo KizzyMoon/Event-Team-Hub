@@ -35,12 +35,11 @@ const ITEM_CATEGORIES = [
   "Property",
   "Shrooms",
   "Tools",
-  "Weapon Mods",
   "Weapon Parts",
   "Weed"
 ];
 const PAWNABLE_CATEGORY = "Pawnable";
-const REMOVED_ITEM_CATEGORIES = new Set(["pawn values", "valuables"]);
+const REMOVED_ITEM_CATEGORIES = new Set(["pawn values", "valuables", "weapon mods"]);
 const REWARD_DEFAULT_PRICES = [
   [/weed|joint/i, 270],
   [/shrooms?|mushroom/i, 250],
@@ -51,6 +50,7 @@ const REWARD_BLOCKED_CODES = new Set(["phone", "phone_broken", "handheld_radio",
 const REWARD_BLOCKED_TEXT = /\b(broken|depleted|cell phone|handheld radio|radio)\b/i;
 const REWARD_MAX_PROPERTY_ITEMS = 1;
 const WEAPON_CATEGORIES = ["HEAVY", "SMGS", "THROWABLES", "MELEE", "OTHER", "PISTOLS", "SHOTGUNS", "RIFLES", "MODS"];
+const WEAPON_MOD_TAG = "Weapon Mod";
 const CRIMINAL_ITEM_TAGS = new Set(["blueprints", "drugs", "heist", "shrooms", "weed"]);
 const VEHICLE_CATEGORIES = [
   "BCSO",
@@ -385,16 +385,16 @@ function mergeSeedItems(savedState) {
 
   (seed.items || []).forEach((item) => {
     if (!deleted.has(item.id) && !deletedCodes.has(String(item.code || "").toLowerCase())) {
-      const mergedItem = removeDeletedTagsFromItem({
+      const mergedItem = removeDeletedTagsFromItem(normalizeWeaponModItem({
         ...item,
         ...(savedState.itemOverrides?.[item.id] || {})
-      }, deletedTags);
+      }), deletedTags);
       if (!isUntaggedObject(mergedItem)) merged.set(item.id, mergedItem);
     }
   });
 
   (savedState.customItems || []).forEach((item) => {
-    const cleanedItem = removeDeletedTagsFromItem(item, deletedTags);
+    const cleanedItem = removeDeletedTagsFromItem(normalizeWeaponModItem(item), deletedTags);
     if (!deleted.has(item.id) && !deletedCodes.has(String(item.code || "").toLowerCase()) && !isUntaggedObject(cleanedItem)) {
       merged.set(item.id, cleanedItem);
     }
@@ -432,7 +432,7 @@ function compactSavedOverrides(overrides = {}) {
 
 function cleanSavedOverrides(overrides = {}, deletedTags = state.deletedTags) {
   return Object.fromEntries(Object.entries(overrides).map(([id, override]) => {
-    return [id, removeDeletedTagsFromItem(override, deletedTags)];
+    return [id, removeDeletedTagsFromItem(normalizeWeaponModItem(override), deletedTags)];
   }));
 }
 
@@ -441,7 +441,7 @@ function saveState() {
   pruneUntaggedObjects();
   const lists = normalizeLists(state.lists || []);
   const savedState = {
-    customItems: (state.customItems || []).map((item) => compactSavedItem(removeDeletedTagsFromItem(item, deletedTags))),
+    customItems: (state.customItems || []).map((item) => compactSavedItem(removeDeletedTagsFromItem(normalizeWeaponModItem(item), deletedTags))),
     itemOverrides: compactSavedOverrides(cleanSavedOverrides(state.itemOverrides || {}, deletedTags)),
     customTags: { ...EMPTY_TAG_STATE, ...(state.customTags || {}) },
     deletedTags,
@@ -625,6 +625,7 @@ function toggleFavorite(itemId) {
 }
 
 function saveItemOverride(item) {
+  item = normalizeWeaponModItem(item);
   if (String(item.id || "").startsWith("custom:")) {
     state.customItems = (state.customItems || []).map((customItem) => customItem.id === item.id ? item : customItem);
     return;
@@ -681,6 +682,23 @@ function normalizeTag(kind, tag) {
   if (kind === "item" && REMOVED_ITEM_CATEGORIES.has(String(tag || "").trim().toLowerCase())) return "Event & Misc";
   if (kind === "vehicle" && /^offroad wheels$/i.test(String(tag))) return "Offroad";
   return tag;
+}
+
+function isWeaponModEntry(item) {
+  if (!item) return false;
+  const code = String(item.code || "");
+  const tags = item.tags || [];
+  return /^mod_/i.test(code) || tags.some((tag) => /^(weapon mods?|mods?)$/i.test(String(tag || "").trim()));
+}
+
+function normalizeWeaponModItem(item) {
+  if (!isWeaponModEntry(item)) return item;
+  return {
+    ...item,
+    kind: "weapon",
+    tags: ["MODS"],
+    price: ""
+  };
 }
 
 function editableTagsFor(item) {
@@ -843,7 +861,7 @@ function getWeaponCategory(item) {
   const text = `${item.name} ${item.code} ${(item.tags || []).join(" ")}`.toLowerCase();
   const manualCategory = (item.tags || []).find((tag) => WEAPON_CATEGORIES.includes(String(tag).toUpperCase()));
   if (manualCategory) return manualCategory.toUpperCase();
-  if (item.kind === "item" && (item.tags || []).some((tag) => String(tag).toLowerCase() === "weapon mods")) return "MODS";
+  if (isWeaponModEntry(item)) return "MODS";
   if (/^mod_/i.test(String(item.code || ""))) return "MODS";
   if (/\b(knife|bat|club|hammer|hatchet|machete|wrench|crowbar|bottle|knuckle|nightstick|battleaxe|pool cue|golf club|dagger|axe|brick|candy cane|sledgehammer|flashlight)\b/.test(text)) return "MELEE";
   if (/\b(grenade|molotov|sticky|pipe bomb|pipebomb|mine|bz gas|tear gas|snowball|ball)\b/.test(text)) return "THROWABLES";
@@ -872,7 +890,7 @@ function categoriesFor(type) {
     const base = baseCategories
       .map((category) => [category, state.items.filter((item) => {
         if (type === "weapon") {
-          return (item.kind === "weapon" || (item.kind === "item" && getWeaponCategory(item) === "MODS")) && getWeaponCategory(item) === category;
+          return item.kind === "weapon" && getWeaponCategory(item) === category;
         }
         if (category === PAWNABLE_CATEGORY) return item.kind === "item" && priceNumber(item.price) > 0;
         return item.kind === type && getUsefulCategory(item) === category;
@@ -914,7 +932,7 @@ function renderCustomCategorySelect(selectedTag = "") {
   const kind = els.itemForm.elements.kind.value;
   const categories = addItemCategoriesFor(kind);
   els.customCategory.innerHTML = categories.map((category) => {
-    return `<option value="${escapeHtml(category)}">${escapeHtml(category)}</option>`;
+    return `<option value="${escapeHtml(category)}">${escapeHtml(kind === "weapon" ? displayWeaponCategory(category) : category)}</option>`;
   }).join("");
   els.customCategory.value = selectedTag && categories.includes(selectedTag) ? selectedTag : categories[0] || "";
 }
@@ -1028,8 +1046,7 @@ function filteredItems() {
   const search = els.search.value.trim().toLowerCase();
   const source = activeTab === "favorites" ? favoriteItems() : state.items;
   return sortItemsByName(source.filter((item) => {
-    const isWeaponMod = type === "weapon" && item.kind === "item" && getWeaponCategory(item) === "MODS";
-    if (activeTab !== "favorites" && item.kind !== type && !isWeaponMod) return false;
+    if (activeTab !== "favorites" && item.kind !== type) return false;
     if (activeTab === "favorites" && activeCategory !== "All" && `${item.kind}s` !== activeCategory.toLowerCase()) return false;
     if (activeTab !== "favorites" && activeCategory !== "All") {
       if (type === "item" && activeCategory === PAWNABLE_CATEGORY) {
@@ -1093,7 +1110,7 @@ function displayWeaponCategory(category) {
     PISTOLS: "Pistols",
     SHOTGUNS: "Shotguns",
     RIFLES: "Rifles",
-    MODS: "Mods"
+    MODS: WEAPON_MOD_TAG
   }[category] || category;
 }
 
@@ -1138,7 +1155,7 @@ function renderCard(item, options = {}) {
 function visibleTags(item) {
   if (item.kind === "weapon") {
     const category = getWeaponCategory(item);
-    return tagWasDeleted(item.kind, category) ? [] : [category];
+    return tagWasDeleted(item.kind, category) ? [] : [category === "MODS" ? WEAPON_MOD_TAG : category];
   }
 
   if (item.kind === "item") {
@@ -1441,7 +1458,7 @@ function allTagCountsFor(kind) {
   if (kind === "weapon") {
     WEAPON_CATEGORIES.filter((category) => !tagWasDeleted("weapon", category)).forEach((category) => {
       counts.set(category, state.items.filter((item) => {
-        return (item.kind === "weapon" || (item.kind === "item" && getWeaponCategory(item) === "MODS")) && getWeaponCategory(item) === category;
+        return item.kind === "weapon" && getWeaponCategory(item) === category;
       }).length);
     });
     customTagsFor("weapon").forEach((tag) => {
@@ -1499,7 +1516,7 @@ function renderSettings() {
 }
 
 function renderAll(options = {}) {
-  state.items = state.items.map(removeDeletedTagsFromItem);
+  state.items = state.items.map((item) => removeDeletedTagsFromItem(normalizeWeaponModItem(item)));
   renderCounts();
   renderCategories(options);
   renderBrowser();
@@ -2681,6 +2698,7 @@ els.itemForm.addEventListener("submit", async (event) => {
     existingItem.tags = form.tags ? [form.tags] : [];
     existingItem.price = form.price ? String(form.price).replace(/[^\d]/g, "") : "";
     existingItem.notes = form.notes || "";
+    Object.assign(existingItem, normalizeWeaponModItem(existingItem));
     saveItemOverride(existingItem);
   } else {
     const id = `custom:${crypto.randomUUID()}`;
@@ -2698,13 +2716,15 @@ els.itemForm.addEventListener("submit", async (event) => {
       price: form.price ? String(form.price).replace(/[^\d]/g, "") : "",
       notes: form.notes || ""
     };
+    Object.assign(item, normalizeWeaponModItem(item));
     state.items.unshift(item);
     state.customItems = state.customItems || [];
     state.customItems.unshift(item);
   }
 
   saveState();
-  const targetTab = { object: "objects", item: "items", vehicle: "vehicles", weapon: "weapons" }[form.kind];
+  const savedKind = existingItem ? existingItem.kind : normalizeWeaponModItem({ kind: form.kind, code: form.code, tags: form.tags ? [form.tags] : [] }).kind;
+  const targetTab = { object: "objects", item: "items", vehicle: "vehicles", weapon: "weapons" }[savedKind];
   els.itemForm.reset();
   editingItemId = "";
   pendingImageData = "";
