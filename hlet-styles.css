@@ -325,6 +325,13 @@ nav span {
   padding: 12px;
 }
 
+.item-card.list-card,
+.weapon-card.list-card {
+  grid-template-rows: 34px 30px minmax(30px, auto) 30px;
+  height: 162px;
+  padding-bottom: 12px;
+}
+
 .weapon-card .thumb,
 .item-card .thumb {
   display: none !important;
@@ -448,6 +455,21 @@ nav span {
 .card-actions {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.list-card .tag-row {
+  max-height: 42px;
+  min-height: 28px;
+}
+
+.list-card-actions {
+  align-self: end;
+  grid-template-columns: minmax(92px, 112px);
+}
+
+.list-card-actions .card-remove {
+  border-color: rgba(255, 92, 103, 0.8);
+  color: #ffd6da;
 }
 
 .tag {

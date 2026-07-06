@@ -1031,15 +1031,19 @@ function displayCategory(kind, category) {
 }
 
 function renderCard(item, options = {}) {
+  const isListCard = Boolean(options.removeFromList);
   const listButton = `<button data-add-to-list="${escapeHtml(item.id)}" type="button">+ List</button>`;
-  const editTagsButton = item.kind === "object" || item.kind === "item" || item.kind === "vehicle" || item.kind === "weapon"
+  const editTagsButton = !isListCard && (item.kind === "object" || item.kind === "item" || item.kind === "vehicle" || item.kind === "weapon")
     ? `<button data-edit-item="${escapeHtml(item.id)}" type="button">Edit</button>`
     : "";
   const thumb = renderThumb(item);
   const formattedPrice = formatMoney(item.price);
   const price = item.kind === "item" && formattedPrice ? `<span class="card-price">$${escapeHtml(formattedPrice)}</span>` : "";
+  const removeAttr = Number.isInteger(options.listIndex)
+    ? `data-remove-from-list-index="${options.listIndex}"`
+    : `data-remove-from-list="${escapeHtml(item.id)}"`;
   return `
-    <article class="card ${item.kind === "weapon" ? "weapon-card" : ""} ${item.kind === "item" ? "item-card" : ""} ${item.blacklisted ? "is-blacklisted" : ""}" data-item-id="${escapeHtml(item.id)}">
+    <article class="card ${item.kind === "weapon" ? "weapon-card" : ""} ${item.kind === "item" ? "item-card" : ""} ${isListCard ? "list-card" : ""} ${item.blacklisted ? "is-blacklisted" : ""}" data-item-id="${escapeHtml(item.id)}">
       <button class="favorite-button ${isFavorite(item.id) ? "active" : ""}" data-toggle-favorite="${escapeHtml(item.id)}" type="button" aria-label="${isFavorite(item.id) ? "Remove favorite" : "Add favorite"}">&#9733;</button>
       ${thumb}
       <h3>${escapeHtml(item.name)}</h3>
@@ -1048,12 +1052,12 @@ function renderCard(item, options = {}) {
         ${visibleTags(item).map((tag) => `<span class="tag">${escapeHtml(tag)}</span>`).join("")}
         ${price}
       </div>
-      ${options.removeFromList ? `<div class="card-actions"><button class="card-remove" data-remove-from-list="${escapeHtml(item.id)}" type="button">Remove</button></div>` : ""}
-      <div class="card-bottom-actions">
+      ${isListCard ? `<div class="card-actions list-card-actions"><button class="card-remove" ${removeAttr} type="button">Remove</button></div>` : ""}
+      ${isListCard ? "" : `<div class="card-bottom-actions">
         <button class="flag-button ${item.blacklisted ? "active" : ""}" data-toggle-blacklist="${escapeHtml(item.id)}" type="button" aria-label="${item.blacklisted ? "Remove blacklist" : "Mark blacklisted"}">⚑</button>
         ${editTagsButton}
         ${options.removeFromList ? "" : listButton}
-      </div>
+      </div>`}
     </article>
   `;
 }
@@ -1186,14 +1190,15 @@ function renderLists() {
   }
 
   const search = els.listSearch.value.trim().toLowerCase();
-  const items = sortItemsByName(list.itemIds
-    .map((id) => state.items.find((item) => item.id === id))
-    .filter(Boolean)
-    .filter((item) => !search || `${item.name} ${item.code} ${(item.tags || []).join(" ")}`.toLowerCase().includes(search)));
+  const items = list.itemIds
+    .map((id, index) => ({ index, item: state.items.find((entry) => entry.id === id) }))
+    .filter((entry) => entry.item)
+    .filter(({ item }) => !search || `${item.name} ${item.code} ${(item.tags || []).join(" ")}`.toLowerCase().includes(search))
+    .sort((a, b) => sortText(a.item.name, b.item.name));
 
   els.listTitle.textContent = list.name;
   els.listSubtitle.textContent = `${list.itemIds.length} items - created by ${list.createdBy || "Events Team"}`;
-  els.listItems.innerHTML = items.map((item) => renderCard(item, { removeFromList: true })).join("");
+  els.listItems.innerHTML = items.map(({ item, index }) => renderCard(item, { removeFromList: true, listIndex: index })).join("");
 }
 
 function itemPrice(item) {
@@ -2429,9 +2434,15 @@ document.addEventListener("click", async (event) => {
   }
 
   const removeFromList = event.target.closest("[data-remove-from-list]");
-  if (removeFromList) {
+  const removeFromListIndex = event.target.closest("[data-remove-from-list-index]");
+  if (removeFromList || removeFromListIndex) {
     const list = state.lists.find((entry) => entry.id === activeListId);
-    if (list) list.itemIds = list.itemIds.filter((id) => id !== removeFromList.dataset.removeFromList);
+    if (list && removeFromListIndex) {
+      const index = Number(removeFromListIndex.dataset.removeFromListIndex);
+      if (Number.isInteger(index) && index >= 0 && index < list.itemIds.length) list.itemIds.splice(index, 1);
+    } else if (list && removeFromList) {
+      list.itemIds = list.itemIds.filter((id) => id !== removeFromList.dataset.removeFromList);
+    }
     saveState();
     renderAll();
     return;
