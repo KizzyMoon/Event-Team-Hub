@@ -394,16 +394,16 @@ function mergeSeedItems(savedState) {
 
   (seed.items || []).forEach((item) => {
     if (!deleted.has(item.id) && !deletedCodes.has(String(item.code || "").toLowerCase())) {
-      const mergedItem = removeDeletedTagsFromItem(normalizeBlueprintItem(normalizeWeaponModItem({
+      const mergedItem = removeDeletedTagsFromItem(normalizeWeaponModItem({
         ...item,
         ...(savedState.itemOverrides?.[item.id] || {})
-      })), deletedTags);
+      }), deletedTags);
       if (!isUntaggedObject(mergedItem)) merged.set(item.id, mergedItem);
     }
   });
 
   (savedState.customItems || []).forEach((item) => {
-    const cleanedItem = removeDeletedTagsFromItem(normalizeBlueprintItem(normalizeWeaponModItem(item)), deletedTags);
+    const cleanedItem = removeDeletedTagsFromItem(normalizeWeaponModItem(item), deletedTags);
     if (!deleted.has(item.id) && !deletedCodes.has(String(item.code || "").toLowerCase()) && !isUntaggedObject(cleanedItem)) {
       merged.set(item.id, cleanedItem);
     }
@@ -441,7 +441,7 @@ function compactSavedOverrides(overrides = {}) {
 
 function cleanSavedOverrides(overrides = {}, deletedTags = state.deletedTags) {
   return Object.fromEntries(Object.entries(overrides).map(([id, override]) => {
-    return [id, removeDeletedTagsFromItem(normalizeBlueprintItem(normalizeWeaponModItem(override)), deletedTags)];
+    return [id, removeDeletedTagsFromItem(normalizeWeaponModItem(override), deletedTags)];
   }));
 }
 
@@ -450,7 +450,7 @@ function saveState() {
   pruneUntaggedObjects();
   const lists = normalizeLists(state.lists || []);
   const savedState = {
-    customItems: (state.customItems || []).map((item) => compactSavedItem(removeDeletedTagsFromItem(normalizeBlueprintItem(normalizeWeaponModItem(item)), deletedTags))),
+    customItems: (state.customItems || []).map((item) => compactSavedItem(removeDeletedTagsFromItem(normalizeWeaponModItem(item), deletedTags))),
     itemOverrides: compactSavedOverrides(cleanSavedOverrides(state.itemOverrides || {}, deletedTags)),
     customTags: { ...EMPTY_TAG_STATE, ...(state.customTags || {}) },
     deletedTags,
@@ -675,13 +675,8 @@ function getUsefulCategory(item) {
 
   const preferred = tags.find((tag) => !isMetadataTag(tag));
   if (preferred) return normalizeTag(item.kind, preferred);
-  if (item.kind === "item") return fallbackItemCategory(state.deletedTags);
+  if (item.kind === "item") return "";
   return item.dlc || "Unsorted";
-}
-
-function fallbackItemCategory(deletedTags = EMPTY_TAG_STATE) {
-  if (!tagWasDeletedIn(deletedTags, "item", "Event & Misc")) return "Event & Misc";
-  return ITEM_CATEGORIES.find((category) => !tagWasDeletedIn(deletedTags, "item", category)) || "Event & Misc";
 }
 
 function isMetadataTag(tag) {
@@ -711,31 +706,14 @@ function normalizeWeaponModItem(item) {
   };
 }
 
-function isBlueprintItem(item) {
-  if (!item || item.kind !== "item") return false;
-  return /blueprints?/i.test(`${item.name || ""} ${item.code || ""}`);
-}
-
-function normalizeBlueprintItem(item) {
-  if (!isBlueprintItem(item) || tagWasDeletedIn(state.deletedTags, "item", "Blueprints")) return item;
-  const tags = item.tags || [];
-  const hasBlueprintTag = tags.some((tag) => String(tag).toLowerCase() === "blueprints");
-  const onlyFallbackAmmo = tags.length === 0 || tags.every((tag) => String(tag).toLowerCase() === "ammo");
-  if (hasBlueprintTag || !onlyFallbackAmmo) return item;
-  return {
-    ...item,
-    tags: ["Blueprints"]
-  };
-}
-
 function normalizeStateItems() {
   let changed = false;
   state.items = (state.items || []).map((item) => {
-    const normalized = normalizeBlueprintItem(normalizeWeaponModItem(item));
+    const normalized = normalizeWeaponModItem(item);
     if (normalized.kind !== item.kind || normalized.tags !== item.tags || normalized.price !== item.price) changed = true;
     return removeDeletedTagsFromItem(normalized);
   });
-  state.customItems = (state.customItems || []).map((item) => normalizeBlueprintItem(normalizeWeaponModItem(item)));
+  state.customItems = (state.customItems || []).map((item) => normalizeWeaponModItem(item));
   return changed;
 }
 
@@ -794,11 +772,6 @@ function removeDeletedTagsFromItem(item, deletedTags = state.deletedTags) {
 }
 
 function cleanItemTags(item, deletedTags = state.deletedTags) {
-  if (isBlueprintItem(item) && !tagWasDeletedIn(deletedTags, "item", "Blueprints")) {
-    const rawTags = item?.tags || [];
-    if (!rawTags.length || rawTags.every((tag) => String(tag).toLowerCase() === "ammo")) return ["Blueprints"];
-  }
-
   const tags = (item?.tags || [])
     .map((tag) => normalizeTag(item.kind, tag))
     .filter(Boolean)
@@ -808,7 +781,7 @@ function cleanItemTags(item, deletedTags = state.deletedTags) {
   const unique = tags.filter((tag, index) => tags.findIndex((entry) => entry.toLowerCase() === tag.toLowerCase()) === index);
   if (item?.kind === "item") {
     const active = unique.filter((tag) => ITEM_CATEGORIES.some((category) => category.toLowerCase() === tag.toLowerCase()));
-    return active.length ? active : [fallbackItemCategory(deletedTags)];
+    return active;
   }
   return unique;
 }
@@ -1283,7 +1256,7 @@ function saveEditedTags() {
   const item = state.items.find((entry) => entry.id === editingTagItemId);
   if (!item) return;
   const previousCategory = activeCategory;
-  item.tags = item.kind === "weapon" ? [editingTags[0] || "OTHER"] : item.kind === "item" ? [editingTags[0] || fallbackItemCategory(state.deletedTags)] : item.kind === "vehicle" ? [editingTags[0] || VEHICLE_CATEGORIES[0]] : [...editingTags];
+  item.tags = item.kind === "weapon" ? [editingTags[0] || "OTHER"] : item.kind === "item" ? (editingTags[0] ? [editingTags[0]] : []) : item.kind === "vehicle" ? [editingTags[0] || VEHICLE_CATEGORIES[0]] : [...editingTags];
   item.tags = cleanItemTags(item);
   saveItemOverride(item);
   saveState();
