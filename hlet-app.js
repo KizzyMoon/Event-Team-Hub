@@ -37,11 +37,10 @@ const ITEM_CATEGORIES = [
   "Property",
   "Shrooms",
   "Tools",
-  "Weapon Parts",
   "Weed"
 ];
 const PAWNABLE_CATEGORY = "Pawnable";
-const REMOVED_ITEM_CATEGORIES = new Set(["pawn values", "valuables", "weapon mod", "weapon mods", "mods"]);
+const REMOVED_ITEM_CATEGORIES = new Set(["pawn values", "valuables", "weapon mod", "weapon mods", "weapon parts", "mods"]);
 const REWARD_DEFAULT_PRICES = [
   [/weed|joint/i, 270],
   [/shrooms?|mushroom/i, 250],
