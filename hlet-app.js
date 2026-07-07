@@ -1,6 +1,7 @@
 const PASSWORD = "HLET2025";
 const STORAGE_KEY = "hlet-hub-v1";
 const LISTS_STORAGE_KEY = `${STORAGE_KEY}-lists`;
+const SETTINGS_STORAGE_KEY = `${STORAGE_KEY}-settings`;
 const SESSION_KEY = "hlet-session-v1";
 const PAGE_SIZE = 120;
 const ATTENDANCE_WINDOW_DAYS = 90;
@@ -284,6 +285,52 @@ function readJsonStorage(key, fallback = null) {
   }
 }
 
+function normalizeTagState(tags = {}) {
+  return Object.fromEntries(Object.entries({ ...EMPTY_TAG_STATE, ...(tags || {}) }).map(([kind, values]) => {
+    const unique = [];
+    (Array.isArray(values) ? values : []).forEach((tag) => {
+      const cleaned = normalizeTag(kind, String(tag || "").trim());
+      if (cleaned && !unique.some((entry) => entry.toLowerCase() === cleaned.toLowerCase())) unique.push(cleaned);
+    });
+    return [kind, unique];
+  }));
+}
+
+function mergeTagStates(...states) {
+  const merged = { ...EMPTY_TAG_STATE };
+  states.forEach((tags) => {
+    const normalized = normalizeTagState(tags);
+    Object.keys(EMPTY_TAG_STATE).forEach((kind) => {
+      normalized[kind].forEach((tag) => {
+        if (!merged[kind].some((entry) => entry.toLowerCase() === tag.toLowerCase())) merged[kind].push(tag);
+      });
+    });
+  });
+  return merged;
+}
+
+function savedSettingsBackup() {
+  const backup = readJsonStorage(SETTINGS_STORAGE_KEY, {});
+  return {
+    customTags: normalizeTagState(backup?.customTags || {}),
+    deletedTags: normalizeTagState(backup?.deletedTags || {})
+  };
+}
+
+function saveSettingsBackup(customTags = state.customTags, deletedTags = state.deletedTags) {
+  try {
+    localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify({
+      customTags: normalizeTagState(customTags),
+      deletedTags: normalizeTagState(deletedTags),
+      savedAt: Date.now()
+    }));
+    return true;
+  } catch (error) {
+    console.error("Could not save settings backup.", error);
+    return false;
+  }
+}
+
 function normalizeLists(lists = []) {
   const seen = new Set();
   return lists
@@ -307,6 +354,7 @@ function savedListsBackup() {
 }
 
 function loadState() {
+  const settingsBackup = savedSettingsBackup();
   const saved = localStorage.getItem(STORAGE_KEY);
   if (saved) {
     try {
@@ -316,8 +364,8 @@ function loadState() {
       parsed.deletedItemCodes = parsed.deletedItemCodes || [];
       parsed.customItems = parsed.customItems || (parsed.items || []).filter((item) => String(item.id || "").startsWith("custom:"));
       parsed.itemOverrides = parsed.itemOverrides || {};
-      parsed.customTags = { ...EMPTY_TAG_STATE, ...(parsed.customTags || {}) };
-      parsed.deletedTags = { ...EMPTY_TAG_STATE, ...(parsed.deletedTags || {}) };
+      parsed.customTags = mergeTagStates(parsed.customTags || {}, settingsBackup.customTags);
+      parsed.deletedTags = mergeTagStates(parsed.deletedTags || {}, settingsBackup.deletedTags);
       parsed.teamMembers = normalizeTeamMembers(parsed.teamMembers || DEFAULT_TEAM_MEMBERS);
       parsed.meetings = normalizeMeetings(parsed.meetings || DEFAULT_MEETINGS);
       parsed.tasks = normalizeTasks(parsed.tasks || DEFAULT_TASKS);
@@ -333,8 +381,8 @@ function loadState() {
     items: seed.items || [],
     customItems: [],
     itemOverrides: {},
-    customTags: { ...EMPTY_TAG_STATE },
-    deletedTags: { ...EMPTY_TAG_STATE },
+    customTags: settingsBackup.customTags,
+    deletedTags: settingsBackup.deletedTags,
     favoritesByUser: {},
     deletedItemIds: [],
     deletedItemCodes: [],
@@ -389,7 +437,7 @@ function removeSeededLists(lists = []) {
 function mergeSeedItems(savedState) {
   const deleted = new Set(savedState.deletedItemIds || []);
   const deletedCodes = new Set((savedState.deletedItemCodes || []).map((code) => String(code || "").toLowerCase()));
-  const deletedTags = { ...EMPTY_TAG_STATE, ...(savedState.deletedTags || {}) };
+  const deletedTags = normalizeTagState(savedState.deletedTags || {});
   const merged = new Map();
 
   (seed.items || []).forEach((item) => {
@@ -446,13 +494,15 @@ function cleanSavedOverrides(overrides = {}, deletedTags = state.deletedTags) {
 }
 
 function saveState() {
-  const deletedTags = { ...EMPTY_TAG_STATE, ...(state.deletedTags || {}) };
+  const deletedTags = normalizeTagState(state.deletedTags || {});
+  const customTags = normalizeTagState(state.customTags || {});
+  saveSettingsBackup(customTags, deletedTags);
   pruneUntaggedObjects();
   const lists = normalizeLists(state.lists || []);
   const savedState = {
     customItems: (state.customItems || []).map((item) => compactSavedItem(removeDeletedTagsFromItem(normalizeWeaponModItem(item), deletedTags))),
     itemOverrides: compactSavedOverrides(cleanSavedOverrides(state.itemOverrides || {}, deletedTags)),
-    customTags: { ...EMPTY_TAG_STATE, ...(state.customTags || {}) },
+    customTags,
     deletedTags,
     favoritesByUser: state.favoritesByUser || {},
     deletedItemIds: state.deletedItemIds || [],
@@ -859,7 +909,8 @@ function applySettingsTagDelete(kind, tag) {
   state.customTags[kind] = customTagsFor(kind).filter((entry) => entry.toLowerCase() !== String(tag).toLowerCase());
   state.items = state.items.map((item) => item.kind === kind ? removeDeletedTagsFromItem(item) : item);
   removeDeletedTagsFromOverrides(kind);
-  return saveState();
+  saveSettingsBackup(state.customTags, state.deletedTags);
+  return saveState() || true;
 }
 
 function submitSettingsTag(form) {
