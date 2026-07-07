@@ -40,7 +40,7 @@ const ITEM_CATEGORIES = [
   "Weed"
 ];
 const PAWNABLE_CATEGORY = "Pawnable";
-const REMOVED_ITEM_CATEGORIES = new Set(["pawn values", "valuables", "weapon mod", "weapon mods", "weapon parts", "mods"]);
+const REMOVED_ITEM_CATEGORIES = new Set(["pawnable", "pawn values", "valuables", "weapon mod", "weapon mods", "weapon parts", "mods"]);
 const REWARD_DEFAULT_PRICES = [
   [/weed|joint/i, 270],
   [/shrooms?|mushroom/i, 250],
@@ -733,7 +733,7 @@ function isMetadataTag(tag) {
 }
 
 function normalizeTag(kind, tag) {
-  if (kind === "item" && REMOVED_ITEM_CATEGORIES.has(String(tag || "").trim().toLowerCase())) return "Event & Misc";
+  if (kind === "item" && REMOVED_ITEM_CATEGORIES.has(String(tag || "").trim().toLowerCase())) return "";
   if (kind === "vehicle" && /^offroad wheels$/i.test(String(tag))) return "Offroad";
   return tag;
 }
@@ -2339,6 +2339,7 @@ els.tabs.forEach((button) => {
 
 els.categories.addEventListener("change", () => {
   activeCategory = els.categories.value;
+  if (activeCategory === PAWNABLE_CATEGORY) els.search.value = "";
   renderLimit = PAGE_SIZE;
   renderAll();
 });
@@ -2347,6 +2348,7 @@ els.categoryChips.addEventListener("click", (event) => {
   const chip = event.target.closest("[data-category-chip]");
   if (!chip) return;
   activeCategory = chip.dataset.categoryChip;
+  if (activeCategory === PAWNABLE_CATEGORY) els.search.value = "";
   renderLimit = PAGE_SIZE;
   renderAll();
 });
